@@ -10,7 +10,7 @@ const NAV = [
   { to: '/batches', icon: Package, label: 'Batches', roles: ['Laboratory User'] },
 ];
 
-export default function Sidebar({ session }) {
+export default function Sidebar({ session, isOpen, onNavClick }) {
   const handleExport = async () => {
     const csv = await api.exportCSV();
     if (!csv) { alert('No samples to export'); return; }
@@ -21,6 +21,7 @@ export default function Sidebar({ session }) {
     a.download = `pre-lis-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    onNavClick?.();
   };
 
   const navStyle = (isActive) => ({
@@ -35,43 +36,89 @@ export default function Sidebar({ session }) {
   });
 
   return (
-    <aside style={{
-      width: '200px', flexShrink: 0, background: 'var(--bg-secondary)',
-      borderRight: '1px solid var(--border-color)', padding: '10px 0',
-      display: 'flex', flexDirection: 'column',
-    }}>
-      <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', padding: '8px 18px 4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-        Navigation
-      </div>
-      {NAV.filter(item => !item.roles || item.roles.includes(session?.role)).map(({ to, icon: Icon, label, exact }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={exact}
-          style={({ isActive }) => navStyle(isActive)}
-        >
-          <Icon size={15} />
-          {label}
-        </NavLink>
-      ))}
-
-      <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', padding: '16px 18px 4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-        Tools
-      </div>
-      <button
-        onClick={handleExport}
+    <>
+      <aside
+        className={`app-sidebar${isOpen ? ' sidebar-open' : ''}`}
         style={{
-          ...navStyle(false), background: 'transparent', border: '1px solid transparent',
-          fontFamily: 'inherit', width: 'calc(100% - 12px)', textAlign: 'left',
+          width: '200px',
+          flexShrink: 0,
+          background: 'var(--bg-secondary)',
+          borderRight: '1px solid var(--border-color)',
+          padding: '10px 0',
+          display: 'flex',
+          flexDirection: 'column',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tertiary)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
       >
-        <Download size={15} /> Export CSV
-      </button>
-      <NavLink to="/settings" style={({ isActive }) => navStyle(isActive)}>
-        <Settings size={15} /> Settings
-      </NavLink>
-    </aside>
+        <div style={{
+          fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)',
+          padding: '8px 18px 4px', textTransform: 'uppercase', letterSpacing: '0.08em',
+        }}>
+          Navigation
+        </div>
+
+        {NAV.filter(item => !item.roles || item.roles.includes(session?.role)).map(({ to, icon: Icon, label, exact }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={exact}
+            style={({ isActive }) => navStyle(isActive)}
+            onClick={onNavClick}
+          >
+            <Icon size={15} />
+            {label}
+          </NavLink>
+        ))}
+
+        <div style={{
+          fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)',
+          padding: '16px 18px 4px', textTransform: 'uppercase', letterSpacing: '0.08em',
+        }}>
+          Tools
+        </div>
+
+        <button
+          onClick={handleExport}
+          style={{
+            ...navStyle(false),
+            background: 'transparent', border: '1px solid transparent',
+            fontFamily: 'inherit', width: 'calc(100% - 12px)', textAlign: 'left',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tertiary)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+        >
+          <Download size={15} /> Export CSV
+        </button>
+
+        <NavLink to="/settings" style={({ isActive }) => navStyle(isActive)} onClick={onNavClick}>
+          <Settings size={15} /> Settings
+        </NavLink>
+      </aside>
+
+      <style>{`
+        /* Desktop: sidebar always visible */
+        .app-sidebar {
+          position: relative;
+          transform: none;
+          z-index: auto;
+        }
+
+        /* Mobile: sidebar is a slide-in drawer */
+        @media (max-width: 768px) {
+          .app-sidebar {
+            position: fixed;
+            top: var(--navbar-height, 56px);
+            left: 0;
+            bottom: 0;
+            z-index: 50;
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.3);
+          }
+          .app-sidebar.sidebar-open {
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </>
   );
 }

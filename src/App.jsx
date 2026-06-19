@@ -16,6 +16,7 @@ import ProtectedRoute from './auth/ProtectedRoute';
 export default function App() {
   const [session, setSession] = useState(api.getCurrentSession());
   const [theme, setTheme] = useState(localStorage.getItem('pre_lis_theme') || 'dark');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -42,6 +43,9 @@ export default function App() {
   const handleLoginSuccess = (s) => setSession(s);
   const handleLogout = () => setSession(null);
 
+  // Close sidebar when navigating (mobile)
+  const handleNavClick = () => setSidebarOpen(false);
+
   return (
     <BrowserRouter>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -51,11 +55,31 @@ export default function App() {
             onLogout={handleLogout}
             theme={theme}
             onToggleTheme={toggleTheme}
+            onMenuToggle={() => setSidebarOpen(prev => !prev)}
           />
         )}
 
-        <div style={{ display: 'flex', flex: 1 }}>
-          {session && <Sidebar session={session} />}
+        <div style={{ display: 'flex', flex: 1, position: 'relative' }}>
+          {session && (
+            <Sidebar
+              session={session}
+              isOpen={sidebarOpen}
+              onNavClick={handleNavClick}
+            />
+          )}
+
+          {/* Backdrop — mobile only, closes sidebar when tapped */}
+          {session && sidebarOpen && (
+            <div
+              onClick={() => setSidebarOpen(false)}
+              style={{
+                display: 'none',
+                position: 'fixed', inset: 0, zIndex: 40,
+                background: 'rgba(0,0,0,0.5)',
+              }}
+              className="sidebar-backdrop"
+            />
+          )}
 
           <main className="main-content">
             <Routes>
@@ -69,6 +93,12 @@ export default function App() {
             </Routes>
           </main>
         </div>
+
+        <style>{`
+          @media (max-width: 768px) {
+            .sidebar-backdrop { display: block !important; }
+          }
+        `}</style>
       </div>
     </BrowserRouter>
   );

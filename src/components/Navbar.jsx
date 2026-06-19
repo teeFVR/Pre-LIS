@@ -1,8 +1,8 @@
 import React from 'react';
-import { FlaskConical, Wifi, WifiOff, LogOut, Sun, Moon } from 'lucide-react';
+import { FlaskConical, Wifi, WifiOff, LogOut, Sun, Moon, Menu } from 'lucide-react';
 import { api } from '../api/supabaseClient';
 
-export default function Navbar({ session, onLogout, theme, onToggleTheme }) {
+export default function Navbar({ session, onLogout, theme, onToggleTheme, onMenuToggle }) {
   const [online, setOnline] = React.useState(navigator.onLine);
 
   React.useEffect(() => {
@@ -20,38 +20,57 @@ export default function Navbar({ session, onLogout, theme, onToggleTheme }) {
 
   return (
     <header style={{
-      height: '56px', display: 'flex', alignItems: 'center', padding: '0 1.25rem',
-      gap: '12px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)',
-      flexShrink: 0, position: 'sticky', top: 0, zIndex: 50,
+      height: 'var(--navbar-height)', display: 'flex', alignItems: 'center', padding: '0 1rem',
+      gap: '10px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)',
+      flexShrink: 0, position: 'sticky', top: 0, zIndex: 60,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '8px' }}>
+      {/* Hamburger — mobile only */}
+      <button
+        onClick={onMenuToggle}
+        className="mobile-menu-btn"
+        aria-label="Toggle sidebar"
+        style={{
+          display: 'none',
+          width: '36px', height: '36px', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: '1px solid var(--border-color)',
+          borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)',
+          flexShrink: 0,
+        }}
+      >
+        <Menu size={18} />
+      </button>
+
+      {/* Brand */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '4px' }}>
         <div style={{
           width: '32px', height: '32px', borderRadius: '9px',
-          background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--accent-gradient)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
           <FlaskConical size={16} color="#fff" />
         </div>
-        <span style={{ fontWeight: 800, fontSize: '15px' }}>
-          Pre-LIS <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '13px' }}>PCR Lab</span>
+        <span style={{ fontWeight: 800, fontSize: '15px', whiteSpace: 'nowrap' }}>
+          Pre-LIS <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '12px' }}>PCR Lab</span>
         </span>
       </div>
 
       <div style={{ flex: 1 }} />
 
+      {/* Badges */}
       {session?.facility && (
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           <span style={{
-            padding: '4px 10px', borderRadius: '20px',
+            padding: '3px 8px', borderRadius: '20px',
             background: 'var(--accent-glow)', border: '1px solid rgba(20,184,166,0.2)',
-            color: 'var(--accent-teal)', fontSize: '11px', fontWeight: 600,
+            color: 'var(--accent-teal)', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap',
           }}>
             {session.facility.split(' ')[0]}
           </span>
           {session?.role && (
-            <span style={{
-              padding: '4px 10px', borderRadius: '20px',
+            <span className="role-badge" style={{
+              padding: '3px 8px', borderRadius: '20px',
               background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
-              color: '#3b82f6', fontSize: '11px', fontWeight: 600,
+              color: '#3b82f6', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap',
             }}>
               {session.role}
             </span>
@@ -59,28 +78,32 @@ export default function Navbar({ session, onLogout, theme, onToggleTheme }) {
         </div>
       )}
 
+      {/* Online status */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
+        display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px',
         borderRadius: '20px', fontSize: '11px', fontWeight: 600,
         background: online ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
         color: online ? 'var(--accent-emerald)' : 'var(--sync-pending)',
+        whiteSpace: 'nowrap',
       }}>
         {online ? <Wifi size={12} /> : <WifiOff size={12} />}
-        {online ? 'Online' : 'Offline'}
+        <span className="online-label">{online ? 'Online' : 'Offline'}</span>
       </div>
 
+      {/* Theme toggle */}
       <button
         onClick={onToggleTheme}
         title="Toggle theme"
         style={{
           width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer',
-          color: 'var(--text-muted)',
+          background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px',
+          cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0,
         }}
       >
         {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
       </button>
 
+      {/* Sign out */}
       <button
         onClick={handleLogout}
         style={{
@@ -88,12 +111,23 @@ export default function Navbar({ session, onLogout, theme, onToggleTheme }) {
           padding: '5px 10px', borderRadius: '8px', cursor: 'pointer',
           background: 'transparent', border: '1px solid var(--border-color)',
           color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'inherit',
+          flexShrink: 0, whiteSpace: 'nowrap',
         }}
         onMouseEnter={e => { e.currentTarget.style.color = 'var(--priority-urgent)'; e.currentTarget.style.borderColor = 'var(--priority-urgent-border)'; }}
         onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-color)'; }}
       >
-        <LogOut size={13} /> Sign Out
+        <LogOut size={13} />
+        <span className="signout-label">Sign Out</span>
       </button>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .mobile-menu-btn { display: flex !important; }
+          .role-badge { display: none; }
+          .online-label { display: none; }
+          .signout-label { display: none; }
+        }
+      `}</style>
     </header>
   );
 }
