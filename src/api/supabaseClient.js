@@ -172,6 +172,16 @@ export function generateBatchID() {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 export const api = {
+  /** Reinitialise Supabase client after credentials saved in Settings */
+  reinitSupabase() {
+    supabase = createSupabaseClient();
+    return !!supabase;
+  },
+
+  isSupabaseConfigured() {
+    return !!supabase;
+  },
+
   /** Fake session management (replace with Supabase Auth for production) */
   login({ facility, role, username }) {
     const session = { facility, role, username, loggedInAt: new Date().toISOString() };
