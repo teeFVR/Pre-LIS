@@ -170,6 +170,12 @@ export function generateBatchID() {
   return `BATCH-${yy}${mm}${dd}-${seq}`;
 }
 
+// Convert a display name to a consistent fake email for Supabase Auth
+function nameToEmail(fullName) {
+  const clean = fullName.trim().toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, '.');
+  return `${clean}@pre-lis.local`;
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 export const api = {
   /** Reinitialise Supabase client after credentials saved in Settings */
@@ -182,11 +188,15 @@ export const api = {
     return !!supabase;
   },
 
-  /** Supabase Auth — sign in with email + password */
-  async login(email, password) {
+  /** Supabase Auth — sign in with name + password (email is auto-generated) */
+  async login(nameOrEmail, password) {
     if (!supabase) throw new Error('Supabase not configured');
+
+    // Support both email (Lab User/Peter) and name (Clinic Staff)
+    const email = nameOrEmail.includes('@') ? nameOrEmail : nameToEmail(nameOrEmail);
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) throw new Error('Incorrect name or password. Please try again.');
 
     // Fetch user profile from app_users table
     const { data: profile, error: profileError } = await supabase
@@ -213,8 +223,18 @@ export const api = {
   },
 
   /** Register a new clinic staff account — pending approval */
-  async registerUser({ fullName, facility, email, password }) {
+  async registerUser({ fullName, facility, password }) {
     if (!supabase) throw new Error('Supabase not configured');
+
+    // Check if name already taken
+    const { data: existing } = await supabase
+      .from('app_users')
+      .select('id')
+      .ilike('full_name', fullName.trim())
+      .single();
+    if (existing) throw new Error('A user with this name already exists. Please use a different name or contact the administrator.');
+
+    const email = nameToEmail(fullName);
 
     // Create auth user
     const { data, error } = await supabase.auth.signUp({ email, password });
@@ -223,7 +243,7 @@ export const api = {
     // Insert into app_users as pending
     const { error: profileError } = await supabase.from('app_users').insert([{
       id: data.user.id,
-      full_name: fullName,
+      full_name: fullName.trim(),
       facility,
       role: 'Clinic Staff',
       status: 'pending',

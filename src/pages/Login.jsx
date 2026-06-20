@@ -11,13 +11,12 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
 
   // Login fields
-  const [email, setEmail] = useState('');
+  const [nameOrEmail, setNameOrEmail] = useState('');
   const [password, setPassword] = useState('');
 
   // Register fields
   const [fullName, setFullName] = useState('');
   const [facility, setFacility] = useState('');
-  const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirm, setRegConfirm] = useState('');
 
@@ -40,11 +39,11 @@ export default function Login({ onLoginSuccess }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
-    if (!email.trim()) { setError('Email is required.'); return; }
+    if (!nameOrEmail.trim()) { setError('Name or email is required.'); return; }
     if (!password) { setError('Password is required.'); return; }
     setLoading(true);
     try {
-      const session = await api.login(email.trim(), password);
+      const session = await api.login(nameOrEmail.trim(), password);
       onLoginSuccess(session);
       navigate('/');
     } catch (err) {
@@ -59,7 +58,6 @@ export default function Login({ onLoginSuccess }) {
     setSuccess('');
     if (!fullName.trim()) { setError('Full name is required.'); return; }
     if (!facility) { setError('Please select your facility.'); return; }
-    if (!regEmail.trim()) { setError('Email is required.'); return; }
     if (regPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
     if (regPassword !== regConfirm) { setError('Passwords do not match.'); return; }
     setLoading(true);
@@ -67,11 +65,10 @@ export default function Login({ onLoginSuccess }) {
       await api.registerUser({
         fullName: fullName.trim(),
         facility,
-        email: regEmail.trim(),
         password: regPassword,
       });
-      setSuccess('Registration submitted! Your account is pending approval by the lab administrator. You will be notified when approved.');
-      setFullName(''); setFacility(''); setRegEmail(''); setRegPassword(''); setRegConfirm('');
+      setSuccess('Registration submitted! Your account is pending approval by the lab administrator.');
+      setFullName(''); setFacility(''); setRegPassword(''); setRegConfirm('');
     } catch (err) {
       setError(err.message || 'Registration failed. Try again.');
     }
@@ -153,17 +150,17 @@ export default function Login({ onLoginSuccess }) {
         {mode === 'login' && (
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label className="form-label">Email Address</label>
+              <label className="form-label">Your Name <span style={{color:'var(--text-muted)', fontWeight:400}}>(Lab User: use email)</span></label>
               <div style={{ position: 'relative' }}>
                 <Mail size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   className="form-input"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  type="text"
+                  placeholder="e.g. Mwansa Bwalya"
+                  value={nameOrEmail}
+                  onChange={e => setNameOrEmail(e.target.value)}
                   style={{ paddingLeft: '34px' }}
-                  autoComplete="email"
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -221,17 +218,6 @@ export default function Login({ onLoginSuccess }) {
                 <option value="">— Select your facility —</option>
                 {FACILITIES.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input
-                className="form-input"
-                type="email"
-                placeholder="your@email.com"
-                value={regEmail}
-                onChange={e => setRegEmail(e.target.value)}
-                autoComplete="email"
-              />
             </div>
             <div className="form-group">
               <label className="form-label">Password</label>
