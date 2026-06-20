@@ -29,6 +29,16 @@ export default function App() {
     localStorage.setItem('pre_lis_theme', theme);
   }, [theme]);
 
+  // Check session expiry every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (session && !api.getCurrentSession()) {
+        setSession(null);
+      }
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [session]);
+
   // Background sync when coming online
   useEffect(() => {
     const handleOnline = () => {

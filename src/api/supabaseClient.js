@@ -285,7 +285,17 @@ export const api = {
 
   getCurrentSession() {
     try {
-      return JSON.parse(localStorage.getItem(SESSION_KEY));
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY));
+      if (!session) return null;
+      // Session expires after 8 hours
+      const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
+      const loggedInAt = new Date(session.loggedInAt).getTime();
+      if (Date.now() - loggedInAt > SESSION_TIMEOUT_MS) {
+        localStorage.removeItem(SESSION_KEY);
+        if (supabase) supabase.auth.signOut();
+        return null;
+      }
+      return session;
     } catch {
       return null;
     }
@@ -320,19 +330,26 @@ export const api = {
 
   /** Fetch all samples from local IndexedDB */
   async getSamples() {
+    const session = this.getCurrentSession();
+    const isLabUser = session?.role === 'Lab User';
+
     // When online and Supabase configured, fetch from cloud (source of truth)
     if (supabase && navigator.onLine) {
       try {
-        const { data, error } = await supabase
-          .from('samples')
-          .select('*')
-          .order('created_at', { ascending: false });
+        let query = supabase.from('samples').select('*').order('created_at', { ascending: false });
+
+        // Clinic Staff only see their own facility's samples
+        if (!isLabUser && session?.facility) {
+          query = query.eq('facility_name', session.facility);
+        }
+
+        const { data, error } = await query;
         if (!error && data) {
           // Sync cloud data into local IDB so offline still works
           for (const s of data) {
             await idbPut({ ...s, synced: true });
           }
-          // Remove local samples that were deleted from Supabase
+          // Remove local samples not in this result set
           const localSamples = await idbGetAll();
           const cloudIds = new Set(data.map(s => s.sample_id));
           for (const local of localSamples) {
@@ -346,8 +363,13 @@ export const api = {
         console.warn('Supabase fetch failed, falling back to IndexedDB:', err.message);
       }
     }
-    // Offline or Supabase not configured — use local IDB
-    return idbGetAll();
+
+    // Offline — filter IDB by facility for Clinic Staff
+    const all = await idbGetAll();
+    if (!isLabUser && session?.facility) {
+      return all.filter(s => s.facility_name === session.facility);
+    }
+    return all;
   },
 
   /** Delete a sample from local store (and Supabase if configured) */
