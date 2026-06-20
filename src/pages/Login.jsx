@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FlaskConical, AlertCircle, Mail, Lock, UserPlus } from 'lucide-react';
+import { FlaskConical, AlertCircle, Lock, UserPlus } from 'lucide-react';
 import { api } from '../api/supabaseClient';
 
 export default function Login({ onLoginSuccess }) {
@@ -150,19 +150,15 @@ export default function Login({ onLoginSuccess }) {
         {mode === 'login' && (
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label className="form-label">Your Name <span style={{color:'var(--text-muted)', fontWeight:400}}>(Lab User: use email)</span></label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="e.g. Mwansa Bwalya"
-                  value={nameOrEmail}
-                  onChange={e => setNameOrEmail(e.target.value)}
-                  style={{ paddingLeft: '34px' }}
-                  autoComplete="username"
-                />
-              </div>
+              <label className="form-label">Full Name</label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="e.g. Peter Kaluba"
+                value={nameOrEmail}
+                onChange={e => setNameOrEmail(e.target.value)}
+                autoComplete="username"
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Password</label>
