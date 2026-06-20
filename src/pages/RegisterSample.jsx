@@ -50,6 +50,34 @@ function deriveAgeCat(age, unit) {
   return 'Adult';
 }
 
+// Calculate age from DOB — returns { age, age_unit }
+function calcAgeFromDOB(dob) {
+  if (!dob) return { age: '', age_unit: 'Years' };
+  const birth = new Date(dob);
+  const today = new Date();
+  const diffMs = today - birth;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffMonths = Math.floor(diffDays / 30.44);
+  const diffYears = Math.floor(diffDays / 365.25);
+
+  if (diffDays < 0) return { age: '', age_unit: 'Years' };
+  if (diffMonths < 1) return { age: String(diffDays), age_unit: 'Days' };
+  if (diffYears < 2) return { age: String(diffMonths), age_unit: 'Months' };
+  return { age: String(diffYears), age_unit: 'Years' };
+}
+
+// Calculate approx DOB from age — returns YYYY-MM-DD
+function calcDOBFromAge(age, unit) {
+  if (!age || isNaN(age)) return '';
+  const today = new Date();
+  let ms = 0;
+  if (unit === 'Years') ms = Number(age) * 365.25 * 24 * 60 * 60 * 1000;
+  else if (unit === 'Months') ms = Number(age) * 30.44 * 24 * 60 * 60 * 1000;
+  else if (unit === 'Days') ms = Number(age) * 24 * 60 * 60 * 1000;
+  const approx = new Date(today.getTime() - ms);
+  return approx.toISOString().split('T')[0];
+}
+
 function now() {
   const d = new Date();
   return {
@@ -172,18 +200,33 @@ export default function RegisterSample({ session }) {
   const set = (field, val) => {
     setForm(f => {
       const next = { ...f, [field]: val };
-      // Auto-derive AgeCat when age/unit changes
-      if (field === 'age' || field === 'age_unit') {
-        next.age_cat = deriveAgeCat(
-          field === 'age' ? val : f.age,
-          field === 'age_unit' ? val : f.age_unit
-        );
+
+      // DOB entered → auto-calculate age + age_unit
+      if (field === 'dob') {
+        if (val) {
+          const { age, age_unit } = calcAgeFromDOB(val);
+          next.age = age;
+          next.age_unit = age_unit;
+          next.age_cat = deriveAgeCat(age, age_unit);
+        }
       }
+
+      // Age entered → auto-calculate approx DOB
+      if (field === 'age' || field === 'age_unit') {
+        const age = field === 'age' ? val : f.age;
+        const unit = field === 'age_unit' ? val : f.age_unit;
+        next.age_cat = deriveAgeCat(age, unit);
+        if (age) {
+          next.dob = calcDOBFromAge(age, unit);
+        }
+      }
+
       // Auto-set facility code when facility name selected
       if (field === 'facility_name') {
         const match = FACILITIES.find(fc => fc.name === val);
         next.facility_code = match ? match.code : '';
       }
+
       return next;
     });
   };
@@ -386,7 +429,7 @@ export default function RegisterSample({ session }) {
               value={form.dob} onChange={e => set('dob', e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Age <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(if DOB unknown)</span></label>
+            <label className="form-label">Age <span style={{ color: 'var(--accent-teal)', fontWeight: 400, textTransform: 'none', fontSize: '10px' }}>→ auto-fills DOB</span></label>
             <input className="form-input" type="number" placeholder="e.g. 32" min="0" max="120"
               value={form.age} onChange={e => set('age', e.target.value)} />
           </div>
