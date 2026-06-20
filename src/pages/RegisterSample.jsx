@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle2, FlaskConical, User, Microscope, Printer, Plus, Heart } from 'lucide-react';
 import { api, generateSampleID } from '../api/supabaseClient';
 
-// WXDISA facility codes — left field is the DISA code, right is the display name
+// Facility list
 const FACILITIES = [
   { code: 'CBT12', name: 'Bulangililo Kitwe' },
   { code: 'UTH01', name: 'UTH - Outpatient Dept.' },
@@ -17,14 +17,14 @@ const FACILITIES = [
   { code: 'DEMO1', name: 'Demo Clinic (Training)' },
 ];
 
-// WXDISA specimen codes — VL/EID: DBS, Whole Blood, Plasma only
+// Specimen types
 const SPECIMEN_TYPES = [
   { code: 'DBS', label: 'DBS — Dried Blood Spot' },
   { code: 'B',   label: 'B — Whole Blood (EDTA)' },
   { code: 'P',   label: 'P — Plasma' },
 ];
 
-// VL Reason — exact values from WXDISA dropdown
+// VL Reason options
 const VL_REASONS = [
   'Baseline VL',
   'HIV Exposed',
@@ -41,7 +41,7 @@ const VL_REASONS = [
 // ART Line options
 const ART_LINES = ['Line 1', 'Line 2', 'Line 3', 'Unknown'];
 
-// AgeCat — WXDISA: 0-13 = Paediatric, 14-19 = Adolescent, 20+ = Adult
+// Age category derivation
 function deriveAgeCat(age, unit) {
   if (!age) return '';
   const ageYears = unit === 'Months' ? age / 12 : unit === 'Days' ? age / 365 : Number(age);
@@ -109,41 +109,41 @@ function drawQRCode(canvas, text, size = 120) {
 }
 
 const BLANK_FORM = (facility = '') => ({
-  // Health Facility (maps to WXDISA Health Facility Information)
-  facility_code: '',          // WXDISA: Facility code e.g. CBT12
-  facility_name: facility,    // WXDISA: Facility display name
-  ward: '',                   // WXDISA: Ward/Clinic
-  clinician: '',              // WXDISA: Clinician
-  hmis_scare: '',             // WXDISA: HMIS/SCare number
-  nid: '',                    // WXDISA: NID (National ID / NRC)
+  // Health Facility
+  facility_code: '',
+  facility_name: facility,
+  ward: '',
+  clinician: '',
+  hmis_scare: '',
+  nid: '',
 
-  // Patient Information (maps to WXDISA Patient Information)
-  surname: '',                // WXDISA: Surname
-  first_name: '',             // WXDISA: First
-  art_no: '',                 // WXDISA: ART No — critical for VL
-  dob: '',                    // WXDISA: Dob/Age (date of birth)
-  age: '',                    // WXDISA: Age (used when DOB unknown)
+  // Patient Information
+  surname: '',
+  first_name: '',
+  art_no: '',
+  dob: '',
+  age: '',
   age_unit: 'Years',
-  sex: '',                    // WXDISA: Sex
-  pregnant: '',               // WXDISA: Pregnant (Female patients)
-  breastfeeding: '',          // WXDISA: Breastfeed
-  age_cat: '',                // WXDISA: AgeCat (auto-derived)
-  art_line: '',               // WXDISA: Line (ART line)
-  vl_reason: '',              // WXDISA: VL Reason
-  art_initiation_date: '',    // WXDISA: ART Initiation
-  current_regimen: '',        // WXDISA: CurrRegi
+  sex: '',
+  pregnant: '',
+  breastfeeding: '',
+  age_cat: '',
+  art_line: '',
+  vl_reason: '',
+  art_initiation_date: '',
+  current_regimen: '',
 
-  // Specimen Information (maps to WXDISA Specimen Information)
-  specimen_code: '',          // WXDISA: Specimen code e.g. B
-  specimen_condition: 'ACC',  // WXDISA: Condition (ACC=Acceptable)
-  collection_date: now().date, // WXDISA: Collection date
+  // Specimen Information
+  specimen_code: '',
+  specimen_condition: 'ACC',
+  collection_date: now().date,
   collection_time: now().time,
-  collector: '',              // WXDISA: Collection By
-  priority: 'Routine',        // WXDISA: Priority (Routine/Urgent)
-  repeat: 'No',               // WXDISA: Repeat
-  lab_notes: '',              // WXDISA: LabNotes
+  collector: '',
+  priority: 'Routine',
+  repeat: 'No',
+  lab_notes: '',
 
-  // Test type (determines which tab in WXDISA)
+  // Test type
   test_type: '',              // VL or EID
 });
 
@@ -153,7 +153,10 @@ export default function RegisterSample({ session }) {
   const [registered, setRegistered] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState(BLANK_FORM(session?.facility || ''));
+  const [form, setForm] = useState(() => ({
+    ...BLANK_FORM(session?.facility || ''),
+    clinician: session?.full_name || '',
+  }));
 
   const freshID = useCallback(() => {
     const fac = (form.facility_code || session?.facility || 'FAC').slice(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
@@ -216,7 +219,7 @@ export default function RegisterSample({ session }) {
     setRegistered(null);
     setError('');
     freshID();
-    setForm(BLANK_FORM(session?.facility || ''));
+    setForm({ ...BLANK_FORM(session?.facility || ''), clinician: session?.full_name || '' });
   };
 
   const printLabel = () => {
@@ -257,7 +260,7 @@ export default function RegisterSample({ session }) {
           </p>
           <div className="success-grid">
             <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Sample ID (BarCode for WXDISA)</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Sample ID</div>
               <div style={{ fontFamily: 'monospace', fontSize: '26px', fontWeight: 800, color: 'var(--accent-emerald)', letterSpacing: '0.05em', marginBottom: '1rem' }}>
                 {registered.sample_id}
               </div>
@@ -287,7 +290,7 @@ export default function RegisterSample({ session }) {
       <div className="page-header">
         <div>
           <h2>Register New Sample</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Fields marked * are required · maps directly to WXDISA Specimen Reception</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Fields marked * are required</p>
         </div>
       </div>
 
@@ -297,13 +300,13 @@ export default function RegisterSample({ session }) {
         </div>
       )}
 
-      {/* Test Type — determines WXDISA tab */}
+      {/* Test Type */}
       <div style={card}>
-        <SectionHeader icon={FlaskConical} title="Test Type *" subtitle="Select test — this determines the WXDISA tab (5.Viral Load or 6.EID)" />
+        <SectionHeader icon={FlaskConical} title="Test Type *" subtitle="Select the type of PCR test being requested" />
         <div style={{ display: 'flex', gap: '10px' }}>
           {[
-            { val: 'VL', label: '5. Viral Load', sub: 'HIV-1 PCR Quantitative' },
-            { val: 'EID', label: '6. EID', sub: 'Early Infant Diagnosis' },
+            { val: 'VL', label: 'Viral Load (VL)', sub: 'HIV-1 PCR Quantitative' },
+            { val: 'EID', label: 'EID', sub: 'Early Infant Diagnosis (PCR)' },
           ].map(({ val, label, sub }) => (
             <button key={val} type="button" onClick={() => set('test_type', val)} style={{
               flex: 1, padding: '12px 16px', borderRadius: '10px', cursor: 'pointer',
@@ -322,13 +325,13 @@ export default function RegisterSample({ session }) {
 
       {/* Health Facility Information */}
       <div style={card}>
-        <SectionHeader icon={FlaskConical} title="Health Facility Information" subtitle="WXDISA: Health Facility Information section" />
+        <SectionHeader icon={FlaskConical} title="Health Facility Information" subtitle="Enter the facility and clinician details for this request" />
         <div className="form-grid form-grid-3">
           <div className="form-group col-span-2">
-            <label className="form-label">Facility * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Facility)</span></label>
+            <label className="form-label">Facility *</label>
             <select className="form-select" value={form.facility_name} onChange={e => set('facility_name', e.target.value)}>
               <option value="">— Select facility —</option>
-              {FACILITIES.map(f => <option key={f.code} value={f.name}>{f.code} — {f.name}</option>)}
+              {FACILITIES.map(f => <option key={f.code} value={f.name}>{f.name}</option>)}
             </select>
           </div>
           <div className="form-group">
@@ -339,18 +342,18 @@ export default function RegisterSample({ session }) {
         </div>
         <div className="form-grid form-grid-3">
           <div className="form-group">
-            <label className="form-label">Ward / Clinic <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Ward/Clinic)</span></label>
-            <input className="form-input" placeholder="e.g. ART Clinic, Male Ward"
+            <label className="form-label">Ward / Clinic</label>
+            <input className="form-input" placeholder="e.g. ART Clinic, Male Ward, OPD"
               value={form.ward} onChange={e => set('ward', e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Clinician <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Clinician)</span></label>
-            <input className="form-input" placeholder="Requesting clinician name"
+            <label className="form-label">Clinician</label>
+            <input className="form-input" placeholder="e.g. Dr. Banda"
               value={form.clinician} onChange={e => set('clinician', e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">HMIS/SCare No. <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: HMIS/SCare)</span></label>
-            <input className="form-input" placeholder="HMIS number"
+            <label className="form-label">HMIS/SCare No.</label>
+            <input className="form-input" placeholder="e.g. 1234567"
               value={form.hmis_scare} onChange={e => set('hmis_scare', e.target.value)} />
           </div>
         </div>
@@ -358,33 +361,33 @@ export default function RegisterSample({ session }) {
 
       {/* Patient Information */}
       <div style={card}>
-        <SectionHeader icon={User} title="Patient Information" subtitle="WXDISA: Patient Information section" />
+        <SectionHeader icon={User} title="Patient Information" subtitle="Enter patient demographic and clinical details" />
         <div className="form-grid form-grid-3">
           <div className="form-group">
-            <label className="form-label">Surname * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Surname)</span></label>
-            <input className="form-input" placeholder="e.g. LITETA"
+            <label className="form-label">Surname *</label>
+            <input className="form-input" placeholder="e.g. BANDA"
               value={form.surname} onChange={e => set('surname', e.target.value.toUpperCase())} />
           </div>
           <div className="form-group">
-            <label className="form-label">First Name * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: First)</span></label>
-            <input className="form-input" placeholder="e.g. JOSEPH"
+            <label className="form-label">First Name *</label>
+            <input className="form-input" placeholder="e.g. JAMES"
               value={form.first_name} onChange={e => set('first_name', e.target.value.toUpperCase())} />
           </div>
           <div className="form-group">
-            <label className="form-label">ART Number * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: ART No)</span></label>
-            <input className="form-input" placeholder="e.g. 2040210251200"
+            <label className="form-label">ART Number *</label>
+            <input className="form-input" placeholder="e.g. 1234567890"
               value={form.art_no} onChange={e => set('art_no', e.target.value)} />
           </div>
         </div>
         <div className="form-grid form-grid-4">
           <div className="form-group">
-            <label className="form-label">Date of Birth <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Dob)</span></label>
+            <label className="form-label">Date of Birth</label>
             <input className="form-input" type="date"
               value={form.dob} onChange={e => set('dob', e.target.value)} />
           </div>
           <div className="form-group">
             <label className="form-label">Age <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(if DOB unknown)</span></label>
-            <input className="form-input" type="number" placeholder="e.g. 38" min="0" max="120"
+            <input className="form-input" type="number" placeholder="e.g. 32" min="0" max="120"
               value={form.age} onChange={e => set('age', e.target.value)} />
           </div>
           <div className="form-group">
@@ -401,7 +404,7 @@ export default function RegisterSample({ session }) {
         </div>
         <div className="form-grid form-grid-4">
           <div className="form-group">
-            <label className="form-label">Sex * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Sex)</span></label>
+            <label className="form-label">Sex *</label>
             <select className="form-select" value={form.sex} onChange={e => set('sex', e.target.value)}>
               <option value="">—</option>
               <option>Male</option><option>Female</option><option>Unknown</option>
@@ -410,13 +413,13 @@ export default function RegisterSample({ session }) {
           {form.sex === 'Female' && (
             <>
               <div className="form-group">
-                <label className="form-label">Pregnant <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Pregnant)</span></label>
+                <label className="form-label">Pregnant</label>
                 <select className="form-select" value={form.pregnant} onChange={e => set('pregnant', e.target.value)}>
                   <option value="">—</option><option>Yes</option><option>No</option><option>Unknown</option>
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Breastfeeding <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Breastfeed)</span></label>
+                <label className="form-label">Breastfeeding</label>
                 <select className="form-select" value={form.breastfeeding} onChange={e => set('breastfeeding', e.target.value)}>
                   <option value="">—</option><option>Yes</option><option>No</option><option>Unknown</option>
                 </select>
@@ -424,7 +427,7 @@ export default function RegisterSample({ session }) {
             </>
           )}
           <div className="form-group">
-            <label className="form-label">NID (NRC) <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: NID)</span></label>
+            <label className="form-label">NID (NRC)</label>
             <input className="form-input" placeholder="e.g. 123456/78/1"
               value={form.nid} onChange={e => set('nid', e.target.value)} />
           </div>
@@ -440,28 +443,28 @@ export default function RegisterSample({ session }) {
             </div>
             <div className="form-grid form-grid-3">
               <div className="form-group">
-                <label className="form-label">ART Line <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Line)</span></label>
+                <label className="form-label">ART Line</label>
                 <select className="form-select" value={form.art_line} onChange={e => set('art_line', e.target.value)}>
                   <option value="">—</option>
                   {ART_LINES.map(l => <option key={l}>{l}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">VL Reason * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: VL Reason)</span></label>
+                <label className="form-label">VL Reason *</label>
                 <select className="form-select" value={form.vl_reason} onChange={e => set('vl_reason', e.target.value)}>
                   <option value="">—</option>
                   {VL_REASONS.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">ART Initiation Date <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: ART Initiation)</span></label>
+                <label className="form-label">ART Initiation Date</label>
                 <input className="form-input" type="date"
                   value={form.art_initiation_date} onChange={e => set('art_initiation_date', e.target.value)} />
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Current ART Regimen <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: CurrRegi)</span></label>
-              <input className="form-input" placeholder="e.g. TDF/3TC/DTG, AZT/3TC/NVP..."
+              <label className="form-label">Current ART Regimen</label>
+              <input className="form-input" placeholder="e.g. TDF/3TC/DTG"
                 value={form.current_regimen} onChange={e => set('current_regimen', e.target.value)} />
             </div>
           </>
@@ -470,17 +473,17 @@ export default function RegisterSample({ session }) {
 
       {/* Specimen Information */}
       <div style={card}>
-        <SectionHeader icon={Microscope} title="Specimen Information" subtitle="WXDISA: Specimen Information section" />
+        <SectionHeader icon={Microscope} title="Specimen Information" subtitle="Enter specimen collection details" />
         <div className="form-grid form-grid-3">
           <div className="form-group">
-            <label className="form-label">Specimen * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Specimen code)</span></label>
+            <label className="form-label">Specimen *</label>
             <select className="form-select" value={form.specimen_code} onChange={e => set('specimen_code', e.target.value)}>
               <option value="">— Select —</option>
               {SPECIMEN_TYPES.map(s => <option key={s.code} value={s.code}>{s.label}</option>)}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Condition <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Condition)</span></label>
+            <label className="form-label">Condition</label>
             <select className="form-select" value={form.specimen_condition} onChange={e => set('specimen_condition', e.target.value)}>
               <option value="ACC">ACC — Acceptable</option>
               <option value="HAE">HAE — Haemolysed</option>
@@ -492,7 +495,7 @@ export default function RegisterSample({ session }) {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Priority <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Priority)</span></label>
+            <label className="form-label">Priority</label>
             <select className="form-select" value={form.priority} onChange={e => set('priority', e.target.value)}>
               <option>Routine</option>
               <option>Urgent</option>
@@ -501,7 +504,7 @@ export default function RegisterSample({ session }) {
         </div>
         <div className="form-grid form-grid-4">
           <div className="form-group">
-            <label className="form-label">Collection Date * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Collection)</span></label>
+            <label className="form-label">Collection Date *</label>
             <input className="form-input" type="date"
               value={form.collection_date} onChange={e => set('collection_date', e.target.value)} />
           </div>
@@ -511,21 +514,21 @@ export default function RegisterSample({ session }) {
               value={form.collection_time} onChange={e => set('collection_time', e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Collected By <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: By)</span></label>
-            <input className="form-input" placeholder="e.g. CLEMENT"
+            <label className="form-label">Collected By</label>
+            <input className="form-input" placeholder="e.g. Nurse Mwape"
               value={form.collector} onChange={e => set('collector', e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Repeat Sample <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Repeat)</span></label>
+            <label className="form-label">Repeat Sample</label>
             <select className="form-select" value={form.repeat} onChange={e => set('repeat', e.target.value)}>
               <option>No</option><option>Yes</option>
             </select>
           </div>
         </div>
         <div className="form-group">
-          <label className="form-label">Lab Notes <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: LabNotes)</span></label>
+          <label className="form-label">Lab Notes</label>
           <textarea className="form-input" rows={2}
-            placeholder="Optional: any notes for the receiving laboratory..."
+            placeholder="Any additional notes for the lab..."
             value={form.lab_notes} onChange={e => set('lab_notes', e.target.value)}
             style={{ resize: 'vertical' }}
           />
@@ -534,12 +537,12 @@ export default function RegisterSample({ session }) {
 
       {/* Sample ID */}
       <div style={card}>
-        <SectionHeader icon={FlaskConical} title="Sample Reference ID" subtitle="This ID will appear as the BarCode reference in WXDISA" />
+        <SectionHeader icon={FlaskConical} title="Sample Reference ID" subtitle="Auto-generated unique reference for this sample" />
         <div style={{ fontFamily: 'monospace', fontSize: '22px', fontWeight: 800, color: 'var(--accent-teal)', letterSpacing: '0.08em', padding: '10px 14px', background: 'var(--bg-primary)', border: '1px solid var(--accent-teal)', borderRadius: '10px', textAlign: 'center', marginBottom: '8px' }}>
           {sampleID}
         </div>
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
-          Auto-generated · format: [FAC]-[YYMMDD]-[NNNN]
+          Auto-generated · format: [FACILITY]-[DATE]-[SEQUENCE]
         </div>
       </div>
 
