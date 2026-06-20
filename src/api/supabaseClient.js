@@ -4,19 +4,33 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const DB_NAME = 'PreLIS_DB';
-const DB_VERSION = 2; // Increment version for new store
+const DB_VERSION = 2;
 const STORE_NAME = 'samples';
 const BATCH_STORE_NAME = 'batches';
 const SESSION_KEY = 'pre_lis_session';
+const CONFIG_KEY = 'pre_lis_config';
 
 // ─── Supabase (optional, cloud sync) ────────────────────────────────────────
-let supabase = null;
-if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Priority: Vite env vars (build-time) → localStorage config (runtime Settings page)
+function getSupabaseConfig() {
+  const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  if (envUrl && envKey) return { url: envUrl, key: envKey };
+  try {
+    const cfg = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
+    if (cfg.url && cfg.key) return cfg;
+  } catch {}
+  return null;
 }
+
+function createSupabaseClient() {
+  const cfg = getSupabaseConfig();
+  if (!cfg) return null;
+  return createClient(cfg.url, cfg.key);
+}
+
+let supabase = createSupabaseClient();
 
 // ─── IndexedDB (always available, primary offline store) ─────────────────────
 function openDB() {
