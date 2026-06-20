@@ -4,33 +4,19 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const DB_NAME = 'PreLIS_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 2; // Increment version for new store
 const STORE_NAME = 'samples';
 const BATCH_STORE_NAME = 'batches';
 const SESSION_KEY = 'pre_lis_session';
-const CONFIG_KEY = 'pre_lis_config';
 
 // ─── Supabase (optional, cloud sync) ────────────────────────────────────────
-// Priority: Vite env vars (build-time) → localStorage config (runtime Settings page)
-function getSupabaseConfig() {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-  if (envUrl && envKey) return { url: envUrl, key: envKey };
-  try {
-    const cfg = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
-    if (cfg.url && cfg.key) return cfg;
-  } catch {}
-  return null;
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
-
-function createSupabaseClient() {
-  const cfg = getSupabaseConfig();
-  if (!cfg) return null;
-  return createClient(cfg.url, cfg.key);
-}
-
-let supabase = createSupabaseClient();
 
 // ─── IndexedDB (always available, primary offline store) ─────────────────────
 function openDB() {
@@ -172,16 +158,6 @@ export function generateBatchID() {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 export const api = {
-  /** Reinitialise Supabase client after credentials saved in Settings */
-  reinitSupabase() {
-    supabase = createSupabaseClient();
-    return !!supabase;
-  },
-
-  isSupabaseConfigured() {
-    return !!supabase;
-  },
-
   /** Fake session management (replace with Supabase Auth for production) */
   login({ facility, role, username }) {
     const session = { facility, role, username, loggedInAt: new Date().toISOString() };
@@ -230,6 +206,33 @@ export const api = {
 
   /** Fetch all samples from local IndexedDB */
   async getSamples() {
+    // When online and Supabase configured, fetch from cloud (source of truth)
+    if (supabase && navigator.onLine) {
+      try {
+        const { data, error } = await supabase
+          .from('samples')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          // Sync cloud data into local IDB so offline still works
+          for (const s of data) {
+            await idbPut({ ...s, synced: true });
+          }
+          // Remove local samples that were deleted from Supabase
+          const localSamples = await idbGetAll();
+          const cloudIds = new Set(data.map(s => s.sample_id));
+          for (const local of localSamples) {
+            if (!cloudIds.has(local.sample_id)) {
+              await idbDelete(local.sample_id);
+            }
+          }
+          return data;
+        }
+      } catch (err) {
+        console.warn('Supabase fetch failed, falling back to IndexedDB:', err.message);
+      }
+    }
+    // Offline or Supabase not configured — use local IDB
     return idbGetAll();
   },
 
@@ -535,12 +538,12 @@ export const api = {
 
   /** Get dashboard stats */
   async getStats() {
-    const all = await idbGetAll();
+    const all = await this.getSamples();
     const today = new Date().toISOString().split('T')[0];
     return {
       total: all.length,
       today: all.filter(s => s.collection_date === today).length,
-      urgent: all.filter(s => s.priority?.toLowerCase() === 'urgent').length,
+      urgent: all.filter(s => (s.priority || '').toLowerCase() === 'urgent').length,
       pending: all.filter(s => !s.synced).length,
     };
   },
