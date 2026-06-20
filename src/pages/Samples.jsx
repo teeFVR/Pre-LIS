@@ -6,23 +6,40 @@ function SampleDetailModal({ sample, onClose, onDelete, onReceive, session }) {
   if (!sample) return null;
   const fields = [
     ['Sample ID', sample.sample_id],
-    ['Patient Name', sample.patient_name],
-    ['NRC / Hospital No.', sample.nrc || '—'],
-    ['Age', `${sample.age} ${sample.age_unit}`],
-    ['Sex', sample.sex],
-    ['Facility', sample.facility],
+    ['Test Type', sample.test_type || '—'],
+    ['Patient Name', sample.patient_name || `${sample.first_name || ''} ${sample.surname || ''}`.trim() || '—'],
+    ['Surname', sample.surname || '—'],
+    ['First Name', sample.first_name || '—'],
+    ['NID / NRC', sample.nid || sample.nrc || '—'],
+    ['ART Number', sample.art_no || '—'],
+    ['Date of Birth', sample.dob || '—'],
+    ['Age', `${sample.age || '—'} ${sample.age_unit || ''}`],
+    ['Age Category', sample.age_cat || '—'],
+    ['Sex', sample.sex || '—'],
+    ['Pregnant', sample.pregnant || '—'],
+    ['Breastfeeding', sample.breastfeeding || '—'],
+    ['Facility', sample.facility_name || sample.facility || '—'],
+    ['Facility Code', sample.facility_code || '—'],
     ['Ward / Clinic', sample.ward || '—'],
-    ['Test Requested', sample.test_requested],
-    ['Sample Type', sample.sample_type],
-    ['Priority', sample.priority.toUpperCase()],
-    ['Collection Date', sample.collection_date],
-    ['Collection Time', sample.collection_time],
+    ['Clinician', sample.clinician || '—'],
+    ['HMIS/SmartCare No.', sample.hmis_scare || '—'],
+    ['ART Line', sample.art_line || '—'],
+    ['VL Reason', sample.vl_reason || '—'],
+    ['ART Initiation Date', sample.art_initiation_date || '—'],
+    ['Current Regimen', sample.current_regimen || '—'],
+    ['Specimen Code', sample.specimen_code || sample.sample_type || '—'],
+    ['Specimen Condition', sample.specimen_condition || '—'],
+    ['Priority', (sample.priority || '').toUpperCase()],
+    ['Repeat Test', sample.repeat || '—'],
+    ['Collection Date', sample.collection_date || '—'],
+    ['Collection Time', sample.collection_time || '—'],
     ['Collected By', sample.collector || '—'],
-    ['Registered By', sample.registered_by],
+    ['Registered By', sample.registered_by || '—'],
     ['Status', sample.status || 'Registered'],
     ...(sample.received_by ? [['Received By', `${sample.received_by} at ${new Date(sample.received_at).toLocaleString()}`]] : []),
+    ['Lab Notes', sample.lab_notes || sample.notes || '—'],
     ['Sync Status', sample.synced ? 'Synced to cloud' : 'Local only (pending sync)'],
-    ['Clinical Notes', sample.notes || '—'],
+    ['Created At', sample.created_at ? new Date(sample.created_at).toLocaleString() : '—'],
   ];
 
   return (
@@ -90,12 +107,18 @@ export default function Samples({ session }) {
 
   const filtered = samples.filter(s => {
     const q = query.toLowerCase();
-    const matchQ = !q || s.sample_id.toLowerCase().includes(q) ||
-      s.patient_name.toLowerCase().includes(q) ||
-      (s.nrc || '').toLowerCase().includes(q) ||
-      (s.facility || '').toLowerCase().includes(q);
-    const matchP = !filterPriority || s.priority === filterPriority;
-    const matchT = !filterTest || s.test_requested === filterTest;
+    const patientName = s.patient_name || `${s.first_name || ''} ${s.surname || ''}`.trim();
+    const matchQ = !q ||
+      (s.sample_id || '').toLowerCase().includes(q) ||
+      patientName.toLowerCase().includes(q) ||
+      (s.nid || s.nrc || '').toLowerCase().includes(q) ||
+      (s.art_no || '').toLowerCase().includes(q) ||
+      (s.facility_name || s.facility || '').toLowerCase().includes(q) ||
+      (s.facility_code || '').toLowerCase().includes(q) ||
+      (s.hmis_scare || '').toLowerCase().includes(q) ||
+      (s.clinician || '').toLowerCase().includes(q);
+    const matchP = !filterPriority || (s.priority || '').toLowerCase() === filterPriority.toLowerCase();
+    const matchT = !filterTest || s.test_type === filterTest;
     return matchQ && matchP && matchT;
   });
 
@@ -129,7 +152,7 @@ export default function Samples({ session }) {
     URL.revokeObjectURL(url);
   };
 
-  const uniqueTests = [...new Set(samples.map(s => s.test_requested))];
+  const uniqueTests = [...new Set(samples.map(s => s.test_type).filter(Boolean))];
 
   return (
     <div className="page-container animate-fade-in">
@@ -162,8 +185,8 @@ export default function Samples({ session }) {
         <select className="form-select" style={{ width: 'auto', minWidth: '130px' }}
           value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
           <option value="">All Priorities</option>
-          <option value="routine">Routine</option>
-          <option value="urgent">Urgent</option>
+          <option value="Routine">Routine</option>
+          <option value="Urgent">Urgent</option>
         </select>
         <select className="form-select" style={{ width: 'auto', minWidth: '180px' }}
           value={filterTest} onChange={e => setFilterTest(e.target.value)}>
@@ -204,15 +227,15 @@ export default function Samples({ session }) {
                   <td style={{ fontFamily: 'monospace', color: 'var(--accent-teal)', fontWeight: 700, fontSize: '12px' }}>
                     {s.sample_id}
                   </td>
-                  <td style={{ fontWeight: 500 }}>{s.patient_name}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{s.nrc || '—'}</td>
+                  <td style={{ fontWeight: 500 }}>{s.patient_name || `${s.first_name || ''} ${s.surname || ''}`.trim() || '—'}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{s.nid || s.nrc || '—'}</td>
                   <td>{s.age} {s.age_unit} / {s.sex}</td>
                   <td style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-secondary)' }}>
-                    {s.test_requested}
+                    {s.test_type || '—'}
                   </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{s.sample_type}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{s.specimen_code || s.sample_type || '—'}</td>
                   <td>
-                    <span className={`badge badge-${s.priority === 'urgent' ? 'urgent' : 'routine'}`}>
+                    <span className={`badge badge-${(s.priority || '').toLowerCase() === 'urgent' ? 'urgent' : 'routine'}`}>
                       {s.priority.toUpperCase()}
                     </span>
                   </td>
