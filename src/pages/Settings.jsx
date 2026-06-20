@@ -1,41 +1,78 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Download, Save, Check } from 'lucide-react';
+import { Database, Download, Save, Check, FlaskConical, Loader2 } from 'lucide-react';
 import { api } from '../api/supabaseClient';
 
 const SQL_SCHEMA = `-- Run this in Supabase SQL Editor
 CREATE TABLE IF NOT EXISTS samples (
-  id           BIGSERIAL PRIMARY KEY,
-  sample_id    TEXT UNIQUE NOT NULL,
-  facility     TEXT,
-  ward         TEXT,
-  patient_name TEXT NOT NULL,
-  nrc          TEXT,
-  age          INTEGER,
-  age_unit     TEXT DEFAULT 'Years',
-  sex          TEXT,
-  test_requested TEXT,
-  sample_type  TEXT,
-  priority     TEXT DEFAULT 'routine',
-  collection_date TEXT,
-  collection_time TEXT,
-  collector    TEXT,
-  registered_by TEXT,
-  notes        TEXT,
-  synced       BOOLEAN DEFAULT FALSE,
-  created_at   TIMESTAMPTZ DEFAULT NOW()
+  id                  BIGSERIAL PRIMARY KEY,
+  sample_id           TEXT UNIQUE NOT NULL,
+  facility_code       TEXT,
+  facility_name       TEXT,
+  ward                TEXT,
+  clinician           TEXT,
+  hmis_scare          TEXT,
+  nid                 TEXT,
+  surname             TEXT,
+  first_name          TEXT,
+  patient_name        TEXT,
+  art_no              TEXT,
+  dob                 TEXT,
+  age                 INTEGER,
+  age_unit            TEXT DEFAULT 'Years',
+  age_cat             TEXT,
+  sex                 TEXT,
+  pregnant            TEXT,
+  breastfeeding       TEXT,
+  art_line            TEXT,
+  vl_reason           TEXT,
+  art_initiation_date TEXT,
+  current_regimen     TEXT,
+  specimen_code       TEXT,
+  specimen_condition  TEXT DEFAULT 'ACC',
+  collection_date     TEXT,
+  collection_time     TEXT,
+  collector           TEXT,
+  priority            TEXT DEFAULT 'Routine',
+  repeat              TEXT DEFAULT 'No',
+  lab_notes           TEXT,
+  test_type           TEXT,
+  registered_by       TEXT,
+  status              TEXT DEFAULT 'Registered',
+  received_by         TEXT,
+  received_at         TIMESTAMPTZ,
+  batch_id            TEXT,
+  synced              BOOLEAN DEFAULT FALSE,
+  created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Row Level Security (recommended for production)
+CREATE INDEX IF NOT EXISTS idx_samples_facility_code ON samples(facility_code);
+CREATE INDEX IF NOT EXISTS idx_samples_test_type ON samples(test_type);
+CREATE INDEX IF NOT EXISTS idx_samples_created_at ON samples(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_samples_sample_id ON samples(sample_id);
+
 ALTER TABLE samples ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Facility users can read own samples"
-  ON samples FOR SELECT USING (TRUE);
-CREATE POLICY "Facility users can insert samples"
-  ON samples FOR INSERT WITH CHECK (TRUE);`;
+CREATE POLICY "allow_insert" ON samples FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "allow_select" ON samples FOR SELECT TO anon USING (true);
+CREATE POLICY "allow_update" ON samples FOR UPDATE TO anon USING (true);
+
+-- Batches table
+CREATE TABLE IF NOT EXISTS batches (
+  batch_id    TEXT PRIMARY KEY,
+  status      TEXT DEFAULT 'Building',
+  sample_count INTEGER DEFAULT 0,
+  exported_at TIMESTAMPTZ,
+  synced      BOOLEAN DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_batches" ON batches FOR ALL TO anon USING (true) WITH CHECK (true);`;
 
 export default function Settings() {
   const [url, setUrl] = useState('');
   const [key, setKey] = useState('');
   const [saved, setSaved] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     try {
@@ -45,8 +82,12 @@ export default function Settings() {
     } catch {}
   }, []);
 
+  const [supabaseStatus, setSupabaseStatus] = React.useState(api.isSupabaseConfigured() ? 'connected' : 'not-configured');
+
   const saveConfig = () => {
     localStorage.setItem('pre_lis_config', JSON.stringify({ url, key }));
+    const connected = api.reinitSupabase();
+    setSupabaseStatus(connected ? 'connected' : 'invalid');
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -59,6 +100,18 @@ export default function Settings() {
     a.href = URL.createObjectURL(blob);
     a.download = `pre-lis-export-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  const handleGenerateDemo = async () => {
+    if (!confirm('This will create 120 dummy samples. Continue?')) return;
+    setGenerating(true);
+    try {
+      await api.generateDemoData(120, 'Demo Tester', 'Test Clinic');
+      alert('120 demo samples created successfully! You can now test batching on the Samples page.');
+    } catch (err) {
+      alert('Failed to generate demo data: ' + err.message);
+    }
+    setGenerating(false);
   };
 
   const card = {
@@ -106,9 +159,19 @@ export default function Settings() {
             {SQL_SCHEMA}
           </pre>
         </div>
-        <button className="btn btn-primary" onClick={saveConfig} style={{ gap: '6px' }}>
-          {saved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Configuration</>}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={saveConfig} style={{ gap: '6px' }}>
+            {saved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Configuration</>}
+          </button>
+          <span style={{
+            padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
+            background: supabaseStatus === 'connected' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+            color: supabaseStatus === 'connected' ? 'var(--accent-emerald)' : 'var(--sync-pending)',
+            border: supabaseStatus === 'connected' ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(245,158,11,0.25)',
+          }}>
+            {supabaseStatus === 'connected' ? '✓ Supabase Connected' : supabaseStatus === 'invalid' ? '✗ Invalid credentials' : '○ Not configured'}
+          </span>
+        </div>
       </div>
 
       <div style={card}>
@@ -138,6 +201,24 @@ export default function Settings() {
             <li><strong style={{ color: 'var(--text-primary)' }}>PWA ready</strong> — add manifest + service worker to enable Add to Home Screen for clinic tablets</li>
           </ul>
         </div>
+      </div>
+
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', color: 'var(--accent-teal)', fontWeight: 700, fontSize: '13px' }}>
+          <FlaskConical size={15} /> Developer Tools
+        </div>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.7' }}>
+          Use this tool to instantly populate the database with dummy samples to test the Laboratory Auto-Batching functionality.
+        </p>
+        <button 
+          className="btn btn-outline" 
+          onClick={handleGenerateDemo} 
+          disabled={generating}
+          style={{ gap: '6px' }}
+        >
+          {generating ? <Loader2 size={14} className="animate-spin-slow" /> : <Database size={14} />} 
+          {generating ? 'Generating 120 Samples...' : 'Generate 120 Demo Samples'}
+        </button>
       </div>
     </div>
   );

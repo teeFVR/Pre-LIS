@@ -4,19 +4,33 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const DB_NAME = 'PreLIS_DB';
-const DB_VERSION = 2; // Increment version for new store
+const DB_VERSION = 2;
 const STORE_NAME = 'samples';
 const BATCH_STORE_NAME = 'batches';
 const SESSION_KEY = 'pre_lis_session';
+const CONFIG_KEY = 'pre_lis_config';
 
 // ─── Supabase (optional, cloud sync) ────────────────────────────────────────
-let supabase = null;
-if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Priority: Vite env vars (build-time) → localStorage config (runtime Settings page)
+function getSupabaseConfig() {
+  const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  if (envUrl && envKey) return { url: envUrl, key: envKey };
+  try {
+    const cfg = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
+    if (cfg.url && cfg.key) return cfg;
+  } catch {}
+  return null;
 }
+
+function createSupabaseClient() {
+  const cfg = getSupabaseConfig();
+  if (!cfg) return null;
+  return createClient(cfg.url, cfg.key);
+}
+
+let supabase = createSupabaseClient();
 
 // ─── IndexedDB (always available, primary offline store) ─────────────────────
 function openDB() {
@@ -158,6 +172,16 @@ export function generateBatchID() {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 export const api = {
+  /** Reinitialise Supabase client after credentials saved in Settings */
+  reinitSupabase() {
+    supabase = createSupabaseClient();
+    return !!supabase;
+  },
+
+  isSupabaseConfigured() {
+    return !!supabase;
+  },
+
   /** Fake session management (replace with Supabase Auth for production) */
   login({ facility, role, username }) {
     const session = { facility, role, username, loggedInAt: new Date().toISOString() };
@@ -332,6 +356,61 @@ export const api = {
     return { synced, failed };
   },
 
+  /** Generate demo data for testing batching */
+  async generateDemoData(count = 120, user = 'Demo Clinic User', facility = 'Test Clinic') {
+    const promises = [];
+    for (let i = 0; i < count; i++) {
+      const sample = {
+        sample_id: generateSampleID('TST'),
+        test_type: i % 2 === 0 ? 'Viral Load' : 'EID',
+        facility_name: facility,
+        facility_code: 'TST',
+        ward: 'OPD',
+        clinician: 'Dr. Demo',
+        hmis_scare: '12345',
+        nid: `123456/78/${i}`,
+        surname: 'Doe',
+        first_name: `Patient${i}`,
+        art_no: `ART-${Math.floor(1000 + Math.random() * 9000)}`,
+        dob: '1990-01-01',
+        age: '36',
+        age_unit: 'Years',
+        age_cat: 'Adult',
+        sex: i % 2 === 0 ? 'M' : 'F',
+        pregnant: 'No',
+        breastfeeding: 'No',
+        art_line: '1st Line',
+        vl_reason: 'Routine',
+        art_initiation_date: '2020-01-01',
+        current_regimen: 'TDF/3TC/DTG',
+        specimen_code: 'EDTA',
+        specimen_condition: 'Good',
+        collection_date: new Date().toISOString().split('T')[0],
+        collection_time: '08:00',
+        collector: user,
+        priority: i % 10 === 0 ? 'Urgent' : 'Routine',
+        repeat: 'No',
+        lab_notes: 'Demo data',
+        registered_by: user,
+        status: 'Registered',
+        created_at: new Date().toISOString(),
+        synced: false
+      };
+      
+      promises.push(idbPut(sample));
+      
+      // Also optimistic cloud sync if online
+      if (supabase && navigator.onLine) {
+         // Fire and forget
+         supabase.from('samples').upsert([sample]).then(({ error }) => {
+           if (!error) idbPut({ ...sample, synced: true });
+         });
+      }
+    }
+    await Promise.all(promises);
+    return count;
+  },
+
   /** Export specific batch to WXDISA-compatible CSV */
   async exportBatchCSV(batch_id) {
     const samples = await idbGetSamplesForBatch(batch_id);
@@ -461,7 +540,7 @@ export const api = {
     return {
       total: all.length,
       today: all.filter(s => s.collection_date === today).length,
-      urgent: all.filter(s => s.priority === 'urgent').length,
+      urgent: all.filter(s => s.priority?.toLowerCase() === 'urgent').length,
       pending: all.filter(s => !s.synced).length,
     };
   },

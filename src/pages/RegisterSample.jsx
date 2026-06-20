@@ -240,9 +240,9 @@ export default function RegisterSample({ session }) {
   };
 
   const card = { background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '14px', padding: '1.25rem', marginBottom: '1rem' };
-  const row2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' };
-  const row3 = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' };
-  const row4 = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' };
+  const row2 = 'form-grid form-grid-2';
+  const row3 = 'form-grid form-grid-3';
+  const row4 = 'form-grid form-grid-4';
 
   if (registered) {
     return (
@@ -255,7 +255,7 @@ export default function RegisterSample({ session }) {
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '1.5rem' }}>
             Saved locally · {navigator.onLine ? 'syncing to cloud' : 'will sync when online'}
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '2rem', alignItems: 'start' }}>
+          <div className="success-grid">
             <div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Sample ID (BarCode for WXDISA)</div>
               <div style={{ fontFamily: 'monospace', fontSize: '26px', fontWeight: 800, color: 'var(--accent-emerald)', letterSpacing: '0.05em', marginBottom: '1rem' }}>
@@ -323,8 +323,8 @@ export default function RegisterSample({ session }) {
       {/* Health Facility Information */}
       <div style={card}>
         <SectionHeader icon={FlaskConical} title="Health Facility Information" subtitle="WXDISA: Health Facility Information section" />
-        <div style={row3}>
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+        <div className="form-grid form-grid-3">
+          <div className="form-group col-span-2">
             <label className="form-label">Facility * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Facility)</span></label>
             <select className="form-select" value={form.facility_name} onChange={e => set('facility_name', e.target.value)}>
               <option value="">— Select facility —</option>
@@ -337,7 +337,7 @@ export default function RegisterSample({ session }) {
               style={{ opacity: 0.7, cursor: 'not-allowed', fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent-teal)' }} />
           </div>
         </div>
-        <div style={row3}>
+        <div className="form-grid form-grid-3">
           <div className="form-group">
             <label className="form-label">Ward / Clinic <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Ward/Clinic)</span></label>
             <input className="form-input" placeholder="e.g. ART Clinic, Male Ward"
@@ -359,8 +359,8 @@ export default function RegisterSample({ session }) {
       {/* Patient Information */}
       <div style={card}>
         <SectionHeader icon={User} title="Patient Information" subtitle="WXDISA: Patient Information section" />
-        <div style={row3}>
-          <div className="form-group" style={{ gridColumn: 'span 1' }}>
+        <div className="form-grid form-grid-3">
+          <div className="form-group">
             <label className="form-label">Surname * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Surname)</span></label>
             <input className="form-input" placeholder="e.g. LITETA"
               value={form.surname} onChange={e => set('surname', e.target.value.toUpperCase())} />
@@ -376,7 +376,7 @@ export default function RegisterSample({ session }) {
               value={form.art_no} onChange={e => set('art_no', e.target.value)} />
           </div>
         </div>
-        <div style={row4}>
+        <div className="form-grid form-grid-4">
           <div className="form-group">
             <label className="form-label">Date of Birth <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Dob)</span></label>
             <input className="form-input" type="date"
@@ -399,7 +399,7 @@ export default function RegisterSample({ session }) {
               style={{ opacity: 0.7, cursor: 'not-allowed' }} placeholder="Auto from age" />
           </div>
         </div>
-        <div style={row4}>
+        <div className="form-grid form-grid-4">
           <div className="form-group">
             <label className="form-label">Sex * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Sex)</span></label>
             <select className="form-select" value={form.sex} onChange={e => set('sex', e.target.value)}>
@@ -438,7 +438,7 @@ export default function RegisterSample({ session }) {
                 HIV / ART Details — {form.test_type}
               </div>
             </div>
-            <div style={row3}>
+            <div className="form-grid form-grid-3">
               <div className="form-group">
                 <label className="form-label">ART Line <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Line)</span></label>
                 <select className="form-select" value={form.art_line} onChange={e => set('art_line', e.target.value)}>
@@ -471,7 +471,7 @@ export default function RegisterSample({ session }) {
       {/* Specimen Information */}
       <div style={card}>
         <SectionHeader icon={Microscope} title="Specimen Information" subtitle="WXDISA: Specimen Information section" />
-        <div style={row3}>
+        <div className="form-grid form-grid-3">
           <div className="form-group">
             <label className="form-label">Specimen * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Specimen code)</span></label>
             <select className="form-select" value={form.specimen_code} onChange={e => set('specimen_code', e.target.value)}>
@@ -499,7 +499,7 @@ export default function RegisterSample({ session }) {
             </select>
           </div>
         </div>
-        <div style={row4}>
+        <div className="form-grid form-grid-4">
           <div className="form-group">
             <label className="form-label">Collection Date * <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none' }}>(WXDISA: Collection)</span></label>
             <input className="form-input" type="date"
@@ -549,6 +549,35 @@ export default function RegisterSample({ session }) {
           {submitting ? 'Registering...' : '💾 Register Sample'}
         </button>
       </div>
+
+      <style>{`
+        .form-grid { display: grid; gap: 12px; }
+        .form-grid-2 { grid-template-columns: 1fr 1fr; }
+        .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .form-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        .col-span-2 { grid-column: span 2; }
+
+        .success-grid {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 2rem;
+          align-items: start;
+        }
+
+        @media (max-width: 640px) {
+          .form-grid-2 { grid-template-columns: 1fr; }
+          .form-grid-3 { grid-template-columns: 1fr 1fr; }
+          .form-grid-4 { grid-template-columns: 1fr 1fr; }
+          .col-span-2 { grid-column: span 1; }
+          .success-grid { grid-template-columns: 1fr; }
+          .success-grid > div:last-child { display: flex; flex-direction: column; align-items: center; }
+        }
+
+        @media (max-width: 400px) {
+          .form-grid-3 { grid-template-columns: 1fr; }
+          .form-grid-4 { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </div>
   );
 }
