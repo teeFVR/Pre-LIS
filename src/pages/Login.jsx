@@ -1,44 +1,80 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FlaskConical, AlertCircle } from 'lucide-react';
+import { FlaskConical, AlertCircle, Mail, Lock, UserPlus } from 'lucide-react';
 import { api } from '../api/supabaseClient';
-
-const FACILITIES = [
-  'UTH - Outpatient Dept.',
-  'Kitwe Central Hospital',
-  'Ndola Teaching Hospital',
-  'Choma General Hospital',
-  'Livingstone General Hospital',
-  'Chipata General Hospital',
-  'Kabwe General Hospital',
-  'Mansa General Hospital',
-  'Solwezi General Hospital',
-  'St. Francis Mission Hospital',
-  'Demo Clinic (Training)',
-];
 
 export default function Login({ onLoginSuccess }) {
   const navigate = useNavigate();
-  const [facility, setFacility] = useState('');
-  const [role, setRole] = useState('Clinic Staff');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  // Login fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // Register fields
+  const [fullName, setFullName] = useState('');
+  const [facility, setFacility] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirm, setRegConfirm] = useState('');
+
+  const FACILITIES = [
+    'UTH - University Teaching Hospital',
+    'Kitwe Central Hospital',
+    'Ndola Teaching Hospital',
+    'Choma General Hospital',
+    'Livingstone General Hospital',
+    'Chipata General Hospital',
+    'Kabwe General Hospital',
+    'Mansa General Hospital',
+    'Solwezi General Hospital',
+    'St. Francis Mission Hospital',
+    'Kasama General Hospital',
+    'Lewanika General Hospital',
+    'Other',
+  ];
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
-    if (!facility) { setError('Please select your facility.'); return; }
-    if (!username.trim()) { setError('Username is required.'); return; }
+    if (!email.trim()) { setError('Email is required.'); return; }
     if (!password) { setError('Password is required.'); return; }
-
     setLoading(true);
-    // Demo auth — replace with Supabase Auth for production
-    await new Promise(r => setTimeout(r, 500));
-    const session = api.login({ facility, role, username: username.trim() });
-    onLoginSuccess(session);
-    navigate('/');
+    try {
+      const session = await api.login(email.trim(), password);
+      onLoginSuccess(session);
+      navigate('/');
+    } catch (err) {
+      setError(err.message || 'Login failed. Check your credentials.');
+    }
+    setLoading(false);
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!fullName.trim()) { setError('Full name is required.'); return; }
+    if (!facility) { setError('Please select your facility.'); return; }
+    if (!regEmail.trim()) { setError('Email is required.'); return; }
+    if (regPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (regPassword !== regConfirm) { setError('Passwords do not match.'); return; }
+    setLoading(true);
+    try {
+      await api.registerUser({
+        fullName: fullName.trim(),
+        facility,
+        email: regEmail.trim(),
+        password: regPassword,
+      });
+      setSuccess('Registration submitted! Your account is pending approval by the lab administrator. You will be notified when approved.');
+      setFullName(''); setFacility(''); setRegEmail(''); setRegPassword(''); setRegConfirm('');
+    } catch (err) {
+      setError(err.message || 'Registration failed. Try again.');
+    }
     setLoading(false);
   };
 
@@ -49,8 +85,9 @@ export default function Login({ onLoginSuccess }) {
     }}>
       <div style={{
         background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-        borderRadius: '20px', padding: '2.5rem', width: '100%', maxWidth: '400px',
+        borderRadius: '20px', padding: '2.5rem', width: '100%', maxWidth: '420px',
       }}>
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem' }}>
           <div style={{
             width: '48px', height: '48px', borderRadius: '14px',
@@ -62,86 +99,184 @@ export default function Login({ onLoginSuccess }) {
           <div>
             <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Pre-LIS Portal</h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
-              PCR Sample Registration System
+              Kitwe Teaching Hospital PCR Lab
             </p>
           </div>
         </div>
 
-        <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>Sign In</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '1.5rem' }}>
-          Access your facility's sample registry
-        </p>
+        {/* Tab switcher */}
+        <div style={{
+          display: 'flex', gap: '4px', background: 'var(--bg-primary)',
+          borderRadius: '10px', padding: '4px', marginBottom: '1.5rem',
+        }}>
+          {['login', 'register'].map(m => (
+            <button
+              key={m}
+              onClick={() => { setMode(m); setError(''); setSuccess(''); }}
+              style={{
+                flex: 1, padding: '8px', borderRadius: '7px', border: 'none',
+                fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                background: mode === m ? 'var(--bg-secondary)' : 'transparent',
+                color: mode === m ? 'var(--text-primary)' : 'var(--text-muted)',
+                transition: 'all 0.15s',
+              }}
+            >
+              {m === 'login' ? 'Sign In' : 'Register'}
+            </button>
+          ))}
+        </div>
 
+        {/* Error */}
         {error && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
+            display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px',
             background: 'var(--priority-urgent-bg)', border: '1px solid var(--priority-urgent-border)',
             borderRadius: '8px', marginBottom: '1rem', color: 'var(--priority-urgent)', fontSize: '13px',
           }}>
-            <AlertCircle size={16} />
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Facility / Collection Point</label>
-            <select className="form-select" value={facility} onChange={e => setFacility(e.target.value)}>
-              <option value="">— Select your facility —</option>
-              {FACILITIES.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
+        {/* Success */}
+        {success && (
+          <div style={{
+            padding: '10px 12px', background: 'rgba(16,185,129,0.1)',
+            border: '1px solid rgba(16,185,129,0.25)', borderRadius: '8px',
+            marginBottom: '1rem', color: 'var(--accent-emerald)', fontSize: '13px', lineHeight: '1.6',
+          }}>
+            {success}
           </div>
+        )}
 
-          <div className="form-group">
-            <label className="form-label">Role</label>
-            <select className="form-select" value={role} onChange={e => setRole(e.target.value)}>
-              <option value="Clinic Staff">Sample Collection Point User (Clinic Staff)</option>
-              <option value="Laboratory User">Laboratory User</option>
-            </select>
-          </div>
+        {/* LOGIN FORM */}
+        {mode === 'login' && (
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  className="form-input"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  style={{ paddingLeft: '34px' }}
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  className="form-input"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  style={{ paddingLeft: '34px' }}
+                  autoComplete="current-password"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+              style={{ width: '100%', padding: '0.75rem', fontSize: '15px', marginTop: '0.5rem' }}
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+            <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', marginTop: '1rem' }}>
+              New clinic staff?{' '}
+              <span
+                onClick={() => { setMode('register'); setError(''); }}
+                style={{ color: 'var(--accent-teal)', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Request access
+              </span>
+            </p>
+          </form>
+        )}
 
-          <div className="form-group">
-            <label className="form-label">Username</label>
-            <input
-              className="form-input"
-              type="text"
-              placeholder="e.g. lab.officer01"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              autoComplete="username"
-            />
-          </div>
+        {/* REGISTER FORM */}
+        {mode === 'register' && !success && (
+          <form onSubmit={handleRegister}>
+            <div className="form-group">
+              <label className="form-label">Full Name</label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="e.g. Mwansa Bwalya"
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Facility / Collection Point</label>
+              <select className="form-select" value={facility} onChange={e => setFacility(e.target.value)}>
+                <option value="">— Select your facility —</option>
+                {FACILITIES.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <input
+                className="form-input"
+                type="email"
+                placeholder="your@email.com"
+                value={regEmail}
+                onChange={e => setRegEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input
+                className="form-input"
+                type="password"
+                placeholder="Min. 6 characters"
+                value={regPassword}
+                onChange={e => setRegPassword(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Confirm Password</label>
+              <input
+                className="form-input"
+                type="password"
+                placeholder="Repeat password"
+                value={regConfirm}
+                onChange={e => setRegConfirm(e.target.value)}
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+              style={{ width: '100%', padding: '0.75rem', fontSize: '15px', marginTop: '0.5rem', gap: '6px' }}
+            >
+              <UserPlus size={16} />
+              {loading ? 'Submitting...' : 'Request Access'}
+            </button>
+            <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', marginTop: '1rem' }}>
+              Your request will be reviewed by the lab administrator before you can log in.
+            </p>
+          </form>
+        )}
 
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-          </div>
-
+        {success && mode === 'register' && (
           <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={loading}
-            style={{ width: '100%', padding: '0.75rem', fontSize: '15px' }}
+            className="btn btn-secondary"
+            onClick={() => { setMode('login'); setSuccess(''); }}
+            style={{ width: '100%', marginTop: '0.5rem' }}
           >
-            {loading ? 'Signing in...' : 'Sign In to System'}
+            Back to Sign In
           </button>
-        </form>
-
-        <div style={{
-          marginTop: '1.25rem', padding: '10px 14px',
-          background: 'var(--accent-glow)', border: '1px solid rgba(20,184,166,0.2)',
-          borderRadius: '8px', fontSize: '12px', color: 'var(--accent-teal)',
-        }}>
-          <strong style={{ display: 'block', marginBottom: '2px' }}>Demo Access</strong>
-          Any facility · any username/password
-        </div>
+        )}
       </div>
     </div>
   );

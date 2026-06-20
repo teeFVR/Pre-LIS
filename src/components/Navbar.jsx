@@ -57,15 +57,17 @@ export default function Navbar({ session, onLogout, theme, onToggleTheme, onMenu
       <div style={{ flex: 1 }} />
 
       {/* Badges */}
-      {session?.facility && (
+      {session && (
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <span style={{
-            padding: '3px 8px', borderRadius: '20px',
-            background: 'var(--accent-glow)', border: '1px solid rgba(20,184,166,0.2)',
-            color: 'var(--accent-teal)', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap',
-          }}>
-            {session.facility.split(' ')[0]}
-          </span>
+          {session.full_name && (
+            <span style={{
+              padding: '3px 8px', borderRadius: '20px',
+              background: 'var(--accent-glow)', border: '1px solid rgba(20,184,166,0.2)',
+              color: 'var(--accent-teal)', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap',
+            }}>
+              {session.full_name.split(' ')[0]}
+            </span>
+          )}
           {session?.role && (
             <span className="role-badge" style={{
               padding: '3px 8px', borderRadius: '20px',

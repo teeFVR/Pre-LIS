@@ -1,13 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Plus, FlaskConical, Download, Settings, Package } from 'lucide-react';
+import { LayoutDashboard, Plus, FlaskConical, Download, Settings, Package, Users } from 'lucide-react';
 import { api } from '../api/supabaseClient';
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
   { to: '/register', icon: Plus, label: 'Register Sample', roles: ['Clinic Staff'] },
   { to: '/samples', icon: FlaskConical, label: 'All Samples' },
-  { to: '/batches', icon: Package, label: 'Batches', roles: ['Laboratory User'] },
+  { to: '/batches', icon: Package, label: 'Batches', roles: ['Lab User'] },
+  { to: '/users', icon: Users, label: 'Users', roles: ['Lab User'] },
 ];
 
 export default function Sidebar({ session, isOpen, onNavClick }) {

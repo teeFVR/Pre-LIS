@@ -8,6 +8,7 @@ import RegisterSample from './pages/RegisterSample';
 import Samples from './pages/Samples';
 import Settings from './pages/Settings';
 import Batches from './pages/Batches';
+import UsersAdmin from './pages/UsersAdmin';
 
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
@@ -41,7 +42,7 @@ export default function App() {
 
   const toggleTheme = () => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   const handleLoginSuccess = (s) => setSession(s);
-  const handleLogout = () => setSession(null);
+  const handleLogout = async () => { await api.logout(); setSession(null); };
 
   // Close sidebar when navigating (mobile)
   const handleNavClick = () => setSidebarOpen(false);
@@ -88,6 +89,7 @@ export default function App() {
               <Route path="/samples" element={<ProtectedRoute><Samples session={session} /></ProtectedRoute>} />
               <Route path="/batches" element={<ProtectedRoute><Batches session={session} /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/users" element={<ProtectedRoute><UsersAdmin session={session} /></ProtectedRoute>} />
               <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

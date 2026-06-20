@@ -182,15 +182,85 @@ export const api = {
     return !!supabase;
   },
 
-  /** Fake session management (replace with Supabase Auth for production) */
-  login({ facility, role, username }) {
-    const session = { facility, role, username, loggedInAt: new Date().toISOString() };
+  /** Supabase Auth — sign in with email + password */
+  async login(email, password) {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    // Fetch user profile from app_users table
+    const { data: profile, error: profileError } = await supabase
+      .from('app_users')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError || !profile) throw new Error('User profile not found. Contact your administrator.');
+    if (profile.status === 'pending') throw new Error('Your account is pending approval. Please wait for the lab administrator to approve your registration.');
+    if (profile.status === 'rejected') throw new Error('Your account has been rejected. Contact the lab administrator.');
+
+    const session = {
+      id: data.user.id,
+      email: data.user.email,
+      full_name: profile.full_name,
+      facility: profile.facility,
+      role: profile.role,
+      status: profile.status,
+      loggedInAt: new Date().toISOString(),
+    };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     return session;
   },
 
-  logout() {
+  /** Register a new clinic staff account — pending approval */
+  async registerUser({ fullName, facility, email, password }) {
+    if (!supabase) throw new Error('Supabase not configured');
+
+    // Create auth user
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+
+    // Insert into app_users as pending
+    const { error: profileError } = await supabase.from('app_users').insert([{
+      id: data.user.id,
+      full_name: fullName,
+      facility,
+      role: 'Clinic Staff',
+      status: 'pending',
+    }]);
+    if (profileError) throw profileError;
+
+    return data.user;
+  },
+
+  /** Get all users — Lab User only */
+  async getPendingUsers() {
+    if (!supabase) return [];
+    const { data, error } = await supabase
+      .from('app_users_with_email')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      // Fallback to app_users if view not created yet
+      const { data: d2 } = await supabase.from('app_users').select('*').order('created_at', { ascending: false });
+      return d2 || [];
+    }
+    return data;
+  },
+
+  /** Approve or reject a user — Lab User only */
+  async updateUserStatus(userId, status) {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { error } = await supabase
+      .from('app_users')
+      .update({ status })
+      .eq('id', userId);
+    if (error) throw error;
+  },
+
+  async logout() {
     localStorage.removeItem(SESSION_KEY);
+    if (supabase) await supabase.auth.signOut();
   },
 
   getCurrentSession() {
