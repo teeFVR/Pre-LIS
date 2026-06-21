@@ -438,7 +438,7 @@ export default function RegisterSample({ session }) {
 
       {/* Patient Information */}
       <div style={card}>
-        <SectionHeader icon={User} title="Patient Information" subtitle="Enter patient demographic and clinical details" />
+        <SectionHeader icon={User} title={isEID ? "Infant Information" : "Patient Information"} subtitle={isEID ? "Enter infant demographic details" : "Enter patient demographic and clinical details"} />
         <div className="form-grid form-grid-3">
           <div className="form-group">
             <label className="form-label">Surname *</label>
@@ -450,11 +450,20 @@ export default function RegisterSample({ session }) {
             <input className="form-input" placeholder="e.g. JAMES"
               value={form.first_name} onChange={e => set('first_name', e.target.value.toUpperCase())} />
           </div>
-          <div className="form-group">
-            <label className="form-label">ART Number *</label>
-            <input className="form-input" placeholder="e.g. 1234567890"
-              value={form.art_no} onChange={e => set('art_no', e.target.value)} />
-          </div>
+          {isVL && (
+            <div className="form-group">
+              <label className="form-label">ART Number *</label>
+              <input className="form-input" placeholder="e.g. 1234567890"
+                value={form.art_no} onChange={e => set('art_no', e.target.value)} />
+            </div>
+          )}
+          {isEID && (
+            <div className="form-group">
+              <label className="form-label">NID (NRC)</label>
+              <input className="form-input" placeholder="e.g. 123456/78/1"
+                value={form.nid} onChange={e => set('nid', e.target.value)} />
+            </div>
+          )}
         </div>
         <div className="form-grid form-grid-4">
           <div className="form-group">
@@ -487,7 +496,7 @@ export default function RegisterSample({ session }) {
               <option>Male</option><option>Female</option><option>Unknown</option>
             </select>
           </div>
-          {form.sex === 'Female' && (
+          {form.sex === 'Female' && isVL && (
             <>
               <div className="form-group">
                 <label className="form-label">Pregnant</label>
@@ -503,11 +512,13 @@ export default function RegisterSample({ session }) {
               </div>
             </>
           )}
-          <div className="form-group">
-            <label className="form-label">NID (NRC)</label>
-            <input className="form-input" placeholder="e.g. 123456/78/1"
-              value={form.nid} onChange={e => set('nid', e.target.value)} />
-          </div>
+          {isVL && (
+            <div className="form-group">
+              <label className="form-label">NID (NRC)</label>
+              <input className="form-input" placeholder="e.g. 123456/78/1"
+                value={form.nid} onChange={e => set('nid', e.target.value)} />
+            </div>
+          )}
         </div>
 
         {/* VL-specific HIV/ART fields */}
