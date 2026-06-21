@@ -336,7 +336,7 @@ export const api = {
     // When online and Supabase configured, fetch from cloud (source of truth)
     if (supabase && navigator.onLine) {
       try {
-        let query = supabase.from('samples').select('*').order('created_at', { ascending: false });
+        let query = supabase.from('samples').select('*');
 
         // Clinic Staff only see their own facility's samples
         if (!isLabUser && session?.facility) {
@@ -357,7 +357,8 @@ export const api = {
               await idbDelete(local.sample_id);
             }
           }
-          return data;
+          // Sort by created_at descending in JS (avoids Supabase client order() bug)
+          return data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         }
       } catch (err) {
         console.warn('Supabase fetch failed, falling back to IndexedDB:', err.message);
