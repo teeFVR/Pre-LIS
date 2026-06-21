@@ -171,6 +171,37 @@ const BLANK_FORM = (facility = '') => ({
   repeat: 'No',
   lab_notes: '',
 
+  // EID — Mother/Caregiver Information
+  mom_surname: '',
+  mom_first_name: '',
+  mom_id_no: '',
+  mom_phone: '',
+  mom_art_no: '',
+  mom_addr: '',
+  infant_id_no: '',
+  med_rec_no: '',
+  multiple: '',
+  birth_order: '',
+
+  // EID — Additional Information
+  rapid_hiv_c: '',
+  hiv_m: '',
+  pmtct_m: '',
+  mom_art_start: '',
+  pmtct_c: '',
+  ctx: '',
+  azt_3tc_nvp: '',
+  ipt: '',
+  other_arv: '',
+  breastfed: '',
+  weeks_since_stopped: '',
+  never_breastfed: '',
+  pcr_done: '',
+  pcr_done_date: '',
+  pcr_result: '',
+  schedule: '',
+  other_info: '',
+
   // Test type
   test_type: '',              // VL or EID
 });
@@ -237,7 +268,9 @@ export default function RegisterSample({ session }) {
 
   const handleSubmit = async () => {
     setError('');
-    const required = ['test_type', 'facility_name', 'surname', 'first_name', 'art_no', 'sex', 'specimen_code', 'collection_date'];
+    const vlRequired = ['test_type', 'facility_name', 'surname', 'first_name', 'art_no', 'sex', 'specimen_code', 'collection_date'];
+    const eidRequired = ['test_type', 'facility_name', 'surname', 'first_name', 'sex', 'specimen_code', 'collection_date'];
+    const required = form.test_type === 'EID' ? eidRequired : vlRequired;
     if (form.dob === '' && form.age === '') { setError('Please enter either Date of Birth or Age.'); return; }
     for (const f of required) {
       if (!form[f]) { setError(`Please fill in all required fields (*). Missing: ${f.replace(/_/g,' ')}`); return; }
@@ -275,7 +308,8 @@ export default function RegisterSample({ session }) {
       </style></head><body>
       <div class="id">${registered.sample_id}</div>
       <div class="row"><b>Patient:</b> ${registered.surname}, ${registered.first_name}</div>
-      <div class="row"><b>ART No:</b> ${registered.art_no || '—'}</div>
+      <div class="row"><b>${registered.test_type === 'EID' ? 'Infant ID' : 'ART No'}:</b> ${registered.test_type === 'EID' ? (registered.infant_id_no || '—') : (registered.art_no || '—')}</div>
+      ${registered.test_type === 'EID' ? `<div class="row"><b>Mother:</b> ${registered.mom_surname || ''}, ${registered.mom_first_name || ''}</div>` : ''}
       <div class="row"><b>Test:</b> ${registered.test_type}</div>
       <div class="row"><b>Specimen:</b> ${registered.specimen_code}</div>
       <div class="row"><b>Facility:</b> ${registered.facility_name}</div>
@@ -476,12 +510,12 @@ export default function RegisterSample({ session }) {
           </div>
         </div>
 
-        {/* HIV-specific patient fields — only for VL and EID */}
-        {showHIVFields && (
+        {/* VL-specific HIV/ART fields */}
+        {isVL && (
           <>
             <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '14px', marginTop: '4px' }}>
               <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-teal)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                HIV / ART Details — {form.test_type}
+                HIV / ART Details
               </div>
             </div>
             <div className="form-grid form-grid-3">
@@ -513,6 +547,203 @@ export default function RegisterSample({ session }) {
           </>
         )}
       </div>
+
+
+      {/* EID — Infant Details */}
+      {isEID && (
+        <div style={card}>
+          <SectionHeader icon={User} title="Infant Details" subtitle="Additional details specific to EID" />
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">Infant ID No.</label>
+              <input className="form-input" placeholder="e.g. INF-2026-001"
+                value={form.infant_id_no} onChange={e => set('infant_id_no', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Medical Record No.</label>
+              <input className="form-input" placeholder="e.g. KTH-12345"
+                value={form.med_rec_no} onChange={e => set('med_rec_no', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Twins / Multiples</label>
+              <select className="form-select" value={form.multiple} onChange={e => set('multiple', e.target.value)}>
+                <option value="">No</option>
+                <option>Yes — Twin 1</option>
+                <option>Yes — Twin 2</option>
+                <option>Yes — Triplet</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">Birth Order</label>
+              <input className="form-input" placeholder="e.g. 1" type="number" min="1"
+                value={form.birth_order} onChange={e => set('birth_order', e.target.value)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EID — Mother/Caregiver Information */}
+      {isEID && (
+        <div style={card}>
+          <SectionHeader icon={Heart} title="Mother / Caregiver Information" subtitle="Details of the mother or primary caregiver" />
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">Mother's Surname</label>
+              <input className="form-input" placeholder="e.g. MWALE"
+                value={form.mom_surname} onChange={e => set('mom_surname', e.target.value.toUpperCase())} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mother's First Name</label>
+              <input className="form-input" placeholder="e.g. GRACE"
+                value={form.mom_first_name} onChange={e => set('mom_first_name', e.target.value.toUpperCase())} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mother's Phone</label>
+              <input className="form-input" placeholder="e.g. 097XXXXXXX"
+                value={form.mom_phone} onChange={e => set('mom_phone', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">Mother's ID No. (NRC)</label>
+              <input className="form-input" placeholder="e.g. 123456/78/1"
+                value={form.mom_id_no} onChange={e => set('mom_id_no', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mother's ART No.</label>
+              <input className="form-input" placeholder="e.g. 1234567890"
+                value={form.mom_art_no} onChange={e => set('mom_art_no', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mother's Address</label>
+              <input className="form-input" placeholder="e.g. Ndeke, Kitwe"
+                value={form.mom_addr} onChange={e => set('mom_addr', e.target.value)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EID — Additional Information */}
+      {isEID && (
+        <div style={card}>
+          <SectionHeader icon={FlaskConical} title="Additional Clinical Information" subtitle="PMTCT, HIV exposure and feeding history" />
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">Rapid HIV (c) — Infant</label>
+              <select className="form-select" value={form.rapid_hiv_c} onChange={e => set('rapid_hiv_c', e.target.value)}>
+                <option value="">—</option><option>Positive</option><option>Negative</option><option>Unknown</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">HIV (m) — Mother</label>
+              <select className="form-select" value={form.hiv_m} onChange={e => set('hiv_m', e.target.value)}>
+                <option value="">—</option><option>Positive</option><option>Negative</option><option>Unknown</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">PMTCT (m) — Mother's Regimen</label>
+              <input className="form-input" placeholder="e.g. Option B+"
+                value={form.pmtct_m} onChange={e => set('pmtct_m', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">Mom ART Start Date</label>
+              <input className="form-input" type="date"
+                value={form.mom_art_start} onChange={e => set('mom_art_start', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">PMTCT (c) — Infant Prophylaxis</label>
+              <input className="form-input" placeholder="e.g. NVP"
+                value={form.pmtct_c} onChange={e => set('pmtct_c', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">CTX (Cotrimoxazole)</label>
+              <select className="form-select" value={form.ctx} onChange={e => set('ctx', e.target.value)}>
+                <option value="">—</option><option>Yes</option><option>No</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">AZT+3TC+NVP</label>
+              <input className="form-input" placeholder="e.g. AZT+3TC+NVP"
+                value={form.azt_3tc_nvp} onChange={e => set('azt_3tc_nvp', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">IPT</label>
+              <input className="form-input" placeholder="e.g. INH"
+                value={form.ipt} onChange={e => set('ipt', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Other ARV</label>
+              <input className="form-input" placeholder="Specify if other"
+                value={form.other_arv} onChange={e => set('other_arv', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">Breastfed</label>
+              <select className="form-select" value={form.breastfed} onChange={e => set('breastfed', e.target.value)}>
+                <option value="">—</option><option>Yes</option><option>No</option>
+              </select>
+            </div>
+            {form.breastfed === 'No' && (
+              <div className="form-group">
+                <label className="form-label">Weeks Since Stopped</label>
+                <input className="form-input" type="number" placeholder="e.g. 4" min="0"
+                  value={form.weeks_since_stopped} onChange={e => set('weeks_since_stopped', e.target.value)} />
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Never Breastfed</label>
+              <select className="form-select" value={form.never_breastfed} onChange={e => set('never_breastfed', e.target.value)}>
+                <option value="">—</option><option>Yes</option><option>No</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-grid form-grid-3">
+            <div className="form-group">
+              <label className="form-label">PCR Done Previously</label>
+              <select className="form-select" value={form.pcr_done} onChange={e => set('pcr_done', e.target.value)}>
+                <option value="">—</option><option>Yes</option><option>No</option>
+              </select>
+            </div>
+            {form.pcr_done === 'Yes' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Date of Previous PCR</label>
+                  <input className="form-input" type="date"
+                    value={form.pcr_done_date} onChange={e => set('pcr_done_date', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Previous PCR Result</label>
+                  <select className="form-select" value={form.pcr_result} onChange={e => set('pcr_result', e.target.value)}>
+                    <option value="">—</option><option>Positive</option><option>Negative</option><option>Indeterminate</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="form-grid form-grid-2">
+            <div className="form-group">
+              <label className="form-label">Schedule</label>
+              <select className="form-select" value={form.schedule} onChange={e => set('schedule', e.target.value)}>
+                <option value="">—</option>
+                <option>6 Weeks</option><option>6 Months</option><option>12 Months</option>
+                <option>18 Months</option><option>24 Months</option><option>Unscheduled</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Other Info</label>
+              <input className="form-input" placeholder="Any other relevant information"
+                value={form.other_info} onChange={e => set('other_info', e.target.value)} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Specimen Information */}
       <div style={card}>
