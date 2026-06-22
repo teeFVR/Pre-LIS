@@ -328,15 +328,18 @@ export const api = {
     return sample;
   },
 
-  /** Fetch all samples from local IndexedDB */
+  /** Fetch all samples — IndexedDB is always the source of truth, cloud supplements it */
   async getSamples() {
     const session = this.getCurrentSession();
-    const isLabUser = session?.role === 'Lab User';
+    const isLabUser = session?.role === 'Lab User' || session?.role === 'Laboratory User';
 
-    // When online and Supabase configured, fetch from cloud (source of truth)
+    // Always read local IDB first — this is our guaranteed source of truth
+    const localSamples = await idbGetAll();
+
+    // When online and Supabase configured, merge cloud records INTO local (never delete local)
     if (supabase && navigator.onLine) {
       try {
-        let query = supabase.from('samples').select('*');
+        let query = supabase.from('samples').select('*').order('created_at', { ascending: false });
 
         // Clinic Staff only see their own facility's samples
         if (!isLabUser && session?.facility) {
@@ -344,33 +347,32 @@ export const api = {
         }
 
         const { data, error } = await query;
-        if (!error && data) {
-          // Sync cloud data into local IDB so offline still works
+        if (!error && data && data.length > 0) {
+          // Merge cloud records into IDB — never delete local-only records
           for (const s of data) {
-            await idbPut({ ...s, synced: true });
-          }
-          // Remove local samples not in this result set
-          const localSamples = await idbGetAll();
-          const cloudIds = new Set(data.map(s => s.sample_id));
-          for (const local of localSamples) {
-            if (!cloudIds.has(local.sample_id)) {
-              await idbDelete(local.sample_id);
+            const local = localSamples.find(l => l.sample_id === s.sample_id);
+            // Only overwrite local if cloud record is newer or local isn't pending sync
+            if (!local || local.synced) {
+              await idbPut({ ...s, synced: true });
             }
           }
-          // Sort by created_at descending in JS (avoids Supabase client order() bug)
-          return data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          // Re-read IDB after merge so we include both local-only + cloud records
+          const merged = await idbGetAll();
+          if (!isLabUser && session?.facility) {
+            return merged.filter(s => s.facility_name === session.facility);
+          }
+          return merged;
         }
       } catch (err) {
-        console.warn('Supabase fetch failed, falling back to IndexedDB:', err.message);
+        console.warn('Supabase fetch failed, using local IndexedDB only:', err.message);
       }
     }
 
-    // Offline — filter IDB by facility for Clinic Staff
-    const all = await idbGetAll();
+    // Offline (or Supabase not configured) — return local data filtered by facility
     if (!isLabUser && session?.facility) {
-      return all.filter(s => s.facility_name === session.facility);
+      return localSamples.filter(s => s.facility_name === session.facility);
     }
-    return all;
+    return localSamples;
   },
 
   /** Delete a sample from local store (and Supabase if configured) */
@@ -673,9 +675,14 @@ export const api = {
     return [headers.join(','), ...rows].join('\n');
   },
 
-  /** Get dashboard stats */
+  /** Get dashboard stats — reads IDB directly to avoid triggering cloud sync */
   async getStats() {
-    const all = await this.getSamples();
+    const session = this.getCurrentSession();
+    const isLabUser = session?.role === 'Lab User' || session?.role === 'Laboratory User';
+    let all = await idbGetAll();
+    if (!isLabUser && session?.facility) {
+      all = all.filter(s => s.facility_name === session.facility);
+    }
     const today = new Date().toISOString().split('T')[0];
     return {
       total: all.length,
