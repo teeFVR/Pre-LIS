@@ -212,15 +212,27 @@ export default function RegisterSample({ session }) {
   const [registered, setRegistered] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const isClinicStaff = session?.role === 'Clinic Staff';
+
+  // For Clinic Staff, resolve their facility name and code from session
+  const sessionFacilityName = isClinicStaff ? (session?.facility || '') : '';
+  const sessionFacilityCode = isClinicStaff
+    ? (FACILITIES.find(f => f.name === session?.facility)?.code || session?.facility?.slice(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'FAC')
+    : '';
+
   const [form, setForm] = useState(() => ({
-    ...BLANK_FORM(session?.facility || ''),
+    ...BLANK_FORM(sessionFacilityName),
+    facility_name: sessionFacilityName,
+    facility_code: sessionFacilityCode,
     clinician: session?.full_name || '',
   }));
 
   const freshID = useCallback(() => {
-    const fac = (form.facility_code || session?.facility || 'FAC').slice(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
+    // Use resolved facility code — for Clinic Staff this comes from session
+    const fac = (form.facility_code || sessionFacilityCode || 'FAC');
     setSampleID(generateSampleID(fac));
-  }, [form.facility_code, session]);
+  }, [form.facility_code, sessionFacilityCode]);
 
   useEffect(() => { freshID(); }, []);
 
@@ -406,10 +418,20 @@ export default function RegisterSample({ session }) {
         <div className="form-grid form-grid-3">
           <div className="form-group col-span-2">
             <label className="form-label">Facility *</label>
-            <select className="form-select" value={form.facility_name} onChange={e => set('facility_name', e.target.value)}>
-              <option value="">— Select facility —</option>
-              {FACILITIES.map(f => <option key={f.code} value={f.name}>{f.name}</option>)}
-            </select>
+            {isClinicStaff ? (
+              <input
+                className="form-input"
+                value={form.facility_name}
+                readOnly
+                style={{ opacity: 0.85, cursor: 'not-allowed', fontWeight: 600, color: 'var(--accent-teal)' }}
+                title="Facility is set from your account registration"
+              />
+            ) : (
+              <select className="form-select" value={form.facility_name} onChange={e => set('facility_name', e.target.value)}>
+                <option value="">— Select facility —</option>
+                {FACILITIES.map(f => <option key={f.code} value={f.name}>{f.name}</option>)}
+              </select>
+            )}
           </div>
           <div className="form-group">
             <label className="form-label">Facility Code</label>
