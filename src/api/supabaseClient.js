@@ -310,15 +310,32 @@ export const api = {
       created_at: new Date().toISOString(),
     };
 
-    // Save locally first (offline-first)
+    // Save locally first (offline-first) — full object including EID fields
     await idbPut(sample);
 
     // Try to sync to Supabase if available and online
     if (supabase && navigator.onLine) {
       try {
-        const { error } = await supabase.from('samples').insert([sample]);
+        // Strip fields not in the Supabase schema to avoid insert errors
+        const SUPABASE_COLUMNS = [
+          'sample_id','facility_code','facility_name','ward','clinician','hmis_scare',
+          'nid','surname','first_name','patient_name','art_no','dob','age','age_unit',
+          'age_cat','sex','pregnant','breastfeeding','art_line','vl_reason',
+          'art_initiation_date','current_regimen','specimen_code','specimen_condition',
+          'collection_date','collection_time','collector','priority','repeat','lab_notes',
+          'test_type','registered_by','status','received_by','received_at','batch_id',
+          'synced','created_at',
+        ];
+        const supabaseSample = {};
+        for (const col of SUPABASE_COLUMNS) {
+          if (sample[col] !== undefined) supabaseSample[col] = sample[col];
+        }
+
+        const { error } = await supabase.from('samples').insert([supabaseSample]);
         if (!error) {
           await idbPut({ ...sample, synced: true });
+        } else {
+          console.warn('Supabase insert error:', error.message);
         }
       } catch (err) {
         console.warn('Supabase sync failed, will retry later:', err.message);
@@ -347,16 +364,18 @@ export const api = {
         }
 
         const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-          // Merge cloud records into IDB — never delete local-only records
-          for (const s of data) {
-            const local = localSamples.find(l => l.sample_id === s.sample_id);
-            // Only overwrite local if cloud record is newer or local isn't pending sync
-            if (!local || local.synced) {
-              await idbPut({ ...s, synced: true });
+        if (!error && data) {
+          if (data.length > 0) {
+            // Merge cloud records into IDB — never delete local-only records
+            for (const s of data) {
+              const local = localSamples.find(l => l.sample_id === s.sample_id);
+              // Only overwrite local if cloud record is newer or local isn't pending sync
+              if (!local || local.synced) {
+                await idbPut({ ...s, synced: true });
+              }
             }
           }
-          // Re-read IDB after merge so we include both local-only + cloud records
+          // Always re-read IDB after merge — local-only records are included regardless
           const merged = await idbGetAll();
           if (!isLabUser && session?.facility) {
             return merged.filter(s => s.facility_name === session.facility);
@@ -480,15 +499,29 @@ export const api = {
     const pending = await idbGetUnsynced();
     let synced = 0;
     let failed = 0;
+    const SUPABASE_COLUMNS = [
+      'sample_id','facility_code','facility_name','ward','clinician','hmis_scare',
+      'nid','surname','first_name','patient_name','art_no','dob','age','age_unit',
+      'age_cat','sex','pregnant','breastfeeding','art_line','vl_reason',
+      'art_initiation_date','current_regimen','specimen_code','specimen_condition',
+      'collection_date','collection_time','collector','priority','repeat','lab_notes',
+      'test_type','registered_by','status','received_by','received_at','batch_id',
+      'synced','created_at',
+    ];
     for (const sample of pending) {
       try {
+        const supabaseSample = {};
+        for (const col of SUPABASE_COLUMNS) {
+          if (sample[col] !== undefined) supabaseSample[col] = sample[col];
+        }
         const { error } = await supabase
           .from('samples')
-          .upsert([sample], { onConflict: 'sample_id' });
+          .upsert([supabaseSample], { onConflict: 'sample_id' });
         if (!error) {
           await idbPut({ ...sample, synced: true });
           synced++;
         } else {
+          console.warn('Sync failed for', sample.sample_id, error.message);
           failed++;
         }
       } catch {
