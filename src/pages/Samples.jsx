@@ -79,7 +79,7 @@ function SampleDetailModal({ sample, onClose, onDelete, onReceive, session }) {
             </button>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {session?.role === 'Laboratory User' && (!sample.status || sample.status === 'Registered') && (
+            {(session?.role === 'Lab User' || session?.role === 'Laboratory User') && (!sample.status || sample.status === 'Registered') && (
               <button className="btn btn-primary" onClick={() => onReceive(sample.sample_id)}>
                 Receive Sample
               </button>
