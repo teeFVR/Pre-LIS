@@ -315,12 +315,21 @@ export const api = {
     }
   },
 
-  /** Register a new sample — always writes to IndexedDB first */
+  /** Register a new sample — Supabase first when online, IDB fallback when offline */
   async registerSample(data) {
-    // Validate sample_id exists
     if (!data.sample_id) {
       throw new Error('Sample ID is missing. Please refresh the page and try again.');
     }
+
+    const SUPABASE_COLUMNS = [
+      'sample_id','facility_code','facility_name','ward','clinician','hmis_scare',
+      'nid','surname','first_name','patient_name','art_no','dob','age','age_unit',
+      'age_cat','sex','pregnant','breastfeeding','art_line','vl_reason',
+      'art_initiation_date','current_regimen','specimen_code','specimen_condition',
+      'collection_date','collection_time','collector','priority','repeat','lab_notes',
+      'test_type','registered_by','status','received_by','received_at','batch_id',
+      'synced','created_at',
+    ];
 
     const sample = {
       ...data,
@@ -329,24 +338,8 @@ export const api = {
       created_at: new Date().toISOString(),
     };
 
-    // Save locally first (offline-first) — full object including EID fields
-    try {
-      await idbPut(sample);
-    } catch (idbErr) {
-      throw new Error('Failed to save locally: ' + idbErr.message);
-    }
-
-    // Try to sync to Supabase if available and online
+    // ONLINE + SUPABASE: write to cloud first, IDB is just a local cache
     if (supabase && navigator.onLine) {
-      const SUPABASE_COLUMNS = [
-        'sample_id','facility_code','facility_name','ward','clinician','hmis_scare',
-        'nid','surname','first_name','patient_name','art_no','dob','age','age_unit',
-        'age_cat','sex','pregnant','breastfeeding','art_line','vl_reason',
-        'art_initiation_date','current_regimen','specimen_code','specimen_condition',
-        'collection_date','collection_time','collector','priority','repeat','lab_notes',
-        'test_type','registered_by','status','received_by','received_at','batch_id',
-        'synced','created_at',
-      ];
       const supabaseSample = {};
       for (const col of SUPABASE_COLUMNS) {
         if (sample[col] !== undefined) supabaseSample[col] = sample[col];
@@ -354,12 +347,25 @@ export const api = {
 
       const { error } = await supabase.from('samples').insert([supabaseSample]);
       if (error) {
-        // Throw so the UI can show the exact Supabase error to the user
         throw new Error(`Supabase error (${error.code}): ${error.message}${error.details ? ' — ' + error.details : ''}`);
-      } else {
-        await idbPut({ ...sample, synced: true });
-        sample.synced = true;
       }
+
+      // Cloud write succeeded — try to cache locally but don't fail if IDB is full
+      try {
+        await idbPut({ ...sample, synced: true });
+      } catch (idbErr) {
+        console.warn('[Pre-LIS] IDB cache failed (storage full?), sample is safe in Supabase:', idbErr.message);
+      }
+
+      sample.synced = true;
+      return sample;
+    }
+
+    // OFFLINE: must use IDB
+    try {
+      await idbPut(sample);
+    } catch (idbErr) {
+      throw new Error('Offline and local storage is full. Please free up browser storage or connect to the internet to register samples.');
     }
 
     return sample;
