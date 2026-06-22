@@ -5,7 +5,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const DB_NAME = 'PreLIS_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'samples';
 const BATCH_STORE_NAME = 'batches';
 const SESSION_KEY = 'pre_lis_session';
@@ -38,6 +38,7 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
+      // Samples store
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'sample_id' });
         store.createIndex('created_at', 'created_at');
@@ -45,7 +46,14 @@ function openDB() {
         store.createIndex('priority', 'priority');
         store.createIndex('synced', 'synced');
         store.createIndex('batch_id', 'batch_id');
+      } else {
+        // Add missing indexes on upgrade
+        const store = e.target.transaction.objectStore(STORE_NAME);
+        if (!store.indexNames.contains('synced')) store.createIndex('synced', 'synced');
+        if (!store.indexNames.contains('batch_id')) store.createIndex('batch_id', 'batch_id');
+        if (!store.indexNames.contains('created_at')) store.createIndex('created_at', 'created_at');
       }
+      // Batches store
       if (!db.objectStoreNames.contains(BATCH_STORE_NAME)) {
         const batchStore = db.createObjectStore(BATCH_STORE_NAME, { keyPath: 'batch_id' });
         batchStore.createIndex('created_at', 'created_at');
@@ -53,7 +61,13 @@ function openDB() {
       }
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = (e) => {
+      console.error('[Pre-LIS] IndexedDB open error:', e.target.error);
+      reject(req.error);
+    };
+    req.onblocked = () => {
+      console.warn('[Pre-LIS] IndexedDB blocked — close other tabs running Pre-LIS');
+    };
   });
 }
 
@@ -303,6 +317,11 @@ export const api = {
 
   /** Register a new sample — always writes to IndexedDB first */
   async registerSample(data) {
+    // Validate sample_id exists
+    if (!data.sample_id) {
+      throw new Error('Sample ID is missing. Please refresh the page and try again.');
+    }
+
     const sample = {
       ...data,
       status: 'Registered',
@@ -311,34 +330,35 @@ export const api = {
     };
 
     // Save locally first (offline-first) — full object including EID fields
-    await idbPut(sample);
+    try {
+      await idbPut(sample);
+    } catch (idbErr) {
+      throw new Error('Failed to save locally: ' + idbErr.message);
+    }
 
     // Try to sync to Supabase if available and online
     if (supabase && navigator.onLine) {
-      try {
-        // Strip fields not in the Supabase schema to avoid insert errors
-        const SUPABASE_COLUMNS = [
-          'sample_id','facility_code','facility_name','ward','clinician','hmis_scare',
-          'nid','surname','first_name','patient_name','art_no','dob','age','age_unit',
-          'age_cat','sex','pregnant','breastfeeding','art_line','vl_reason',
-          'art_initiation_date','current_regimen','specimen_code','specimen_condition',
-          'collection_date','collection_time','collector','priority','repeat','lab_notes',
-          'test_type','registered_by','status','received_by','received_at','batch_id',
-          'synced','created_at',
-        ];
-        const supabaseSample = {};
-        for (const col of SUPABASE_COLUMNS) {
-          if (sample[col] !== undefined) supabaseSample[col] = sample[col];
-        }
+      const SUPABASE_COLUMNS = [
+        'sample_id','facility_code','facility_name','ward','clinician','hmis_scare',
+        'nid','surname','first_name','patient_name','art_no','dob','age','age_unit',
+        'age_cat','sex','pregnant','breastfeeding','art_line','vl_reason',
+        'art_initiation_date','current_regimen','specimen_code','specimen_condition',
+        'collection_date','collection_time','collector','priority','repeat','lab_notes',
+        'test_type','registered_by','status','received_by','received_at','batch_id',
+        'synced','created_at',
+      ];
+      const supabaseSample = {};
+      for (const col of SUPABASE_COLUMNS) {
+        if (sample[col] !== undefined) supabaseSample[col] = sample[col];
+      }
 
-        const { error } = await supabase.from('samples').insert([supabaseSample]);
-        if (!error) {
-          await idbPut({ ...sample, synced: true });
-        } else {
-          console.warn('Supabase insert error:', error.message);
-        }
-      } catch (err) {
-        console.warn('Supabase sync failed, will retry later:', err.message);
+      const { error } = await supabase.from('samples').insert([supabaseSample]);
+      if (error) {
+        // Throw so the UI can show the exact Supabase error to the user
+        throw new Error(`Supabase error (${error.code}): ${error.message}${error.details ? ' — ' + error.details : ''}`);
+      } else {
+        await idbPut({ ...sample, synced: true });
+        sample.synced = true;
       }
     }
 
